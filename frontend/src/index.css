@@ -1,0 +1,14 @@
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  /* Minimalistic blue gradient background */
+  background:
+    radial-gradient(900px 700px at 0% 0%, rgba(72, 118, 239, 0.30), transparent 50%),
+    linear-gradient(135deg, #f0f5ff 0%, #ffffff 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
