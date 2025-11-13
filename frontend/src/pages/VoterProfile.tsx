@@ -20,6 +20,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import PersonIcon from '@mui/icons-material/Person'
 import { useVoterProfile, useUpdateVoterProfile } from '../hooks/VoterAuthHooks'
 import VoterSidenav from '../components/VoterSidenav'
+import StatusModal from '../components/StatusModal'
 
 // Voter profile schema (without verify/archive)
 const voterProfileSchema = z.object({
@@ -43,7 +44,17 @@ const VoterProfile = () => {
   const updateMutation = useUpdateVoterProfile()
   const [imagePreview, setImagePreview] = React.useState<string | null>(null)
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
+  const [modalState, setModalState] = React.useState<{
+    open: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({
+    open: false,
+    type: 'success',
+    title: '',
+    message: '',
+  })
 
   const {
     control,
@@ -80,7 +91,6 @@ const VoterProfile = () => {
 
   const onSubmit = async (data: VoterProfileFormData) => {
     try {
-      setSuccessMessage(null)
       const formData = new FormData()
       
       if (data.fname) formData.append('fname', data.fname)
@@ -95,15 +105,27 @@ const VoterProfile = () => {
       }
 
       await updateMutation.mutateAsync(formData)
-      setSuccessMessage('Profile updated successfully!')
+      
+      setModalState({
+        open: true,
+        type: 'success',
+        title: 'Profile Updated!',
+        message: 'Your profile has been updated successfully.',
+      })
       
       // Clear password field after successful update
       reset({
         ...data,
         password: '',
       })
-    } catch (error) {
-      console.error('Failed to update profile:', error)
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to update profile. Please try again.'
+      setModalState({
+        open: true,
+        type: 'error',
+        title: 'Update Failed',
+        message: message,
+      })
     }
   }
 
@@ -158,20 +180,6 @@ const VoterProfile = () => {
 
         <Card>
           <CardContent sx={{ p: 4 }}>
-            {successMessage && (
-              <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
-                {successMessage}
-              </Alert>
-            )}
-
-            {updateMutation.error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {updateMutation.error instanceof Error
-                  ? updateMutation.error.message
-                  : 'Failed to update profile'}
-              </Alert>
-            )}
-
             <form onSubmit={handleSubmit(onSubmit)}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {/* Profile Image */}
@@ -311,6 +319,15 @@ const VoterProfile = () => {
             </form>
           </CardContent>
         </Card>
+
+        {/* Status Modal */}
+        <StatusModal
+          open={modalState.open}
+          onClose={() => setModalState({ ...modalState, open: false })}
+          type={modalState.type}
+          title={modalState.title}
+          message={modalState.message}
+        />
       </Container>
     </VoterSidenav>
   )

@@ -298,12 +298,22 @@ class CandidateController extends GlobalUtil {
             // No authentication required for public view
             
             // Check if election exists
-            $electionStmt = $this->pdo->prepare("SELECT id, election_title FROM elections WHERE id = ? AND is_archived = FALSE");
+            $electionStmt = $this->pdo->prepare("SELECT id, election_title, election_type FROM elections WHERE id = ? AND is_archived = FALSE");
             $electionStmt->execute([$electionId]);
             $election = $electionStmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$election) {
                 return $this->sendErrorResponse("Election not found", 404);
+            }
+
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            if (isset($_SESSION['voter_logged_in']) && $_SESSION['voter_logged_in'] === true) {
+                $voterType = strtolower($_SESSION['voter_type'] ?? '');
+                if ($voterType && strtolower($election['election_type'] ?? '') !== $voterType) {
+                    return $this->sendErrorResponse("This election is not available for your voter type.", 403);
+                }
             }
 
             $sql = "SELECT 

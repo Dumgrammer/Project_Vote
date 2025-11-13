@@ -1,17 +1,5 @@
 import React from 'react'
-import {
-  Box,
-  Drawer,
-  Toolbar,
-  List,
-  Typography,
-  Divider,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Fab,
-} from '@mui/material'
+import { Box, Drawer, Toolbar, List, Typography, Divider, ListItem, ListItemButton, ListItemIcon, ListItemText, Fab, Chip } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
 import HomeIcon from '@mui/icons-material/Home'
 import PersonIcon from '@mui/icons-material/Person'
@@ -19,6 +7,7 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import HowToVoteIcon from '@mui/icons-material/HowToVote'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useVoterAuth } from '../contexts/VoterAuthContext'
+import GeminiChatWidget from './GeminiChatWidget'
 
 const drawerWidth = 240
 
@@ -30,7 +19,7 @@ const VoterSidenav: React.FC<VoterSidenavProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const { logout } = useVoterAuth()
+  const { logout, voter } = useVoterAuth()
 
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, path: '/voter/home' },
@@ -59,11 +48,20 @@ const VoterSidenav: React.FC<VoterSidenavProps> = ({ children }) => {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box>
         <Toolbar sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
-          <HowToVoteIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-          <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '.1rem' }}>
+          <HowToVoteIcon sx={{ color: 'success.main', fontSize: 28 }} />
+          <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '.1rem', color: 'success.main' }}>
             POLLIFY
           </Typography>
         </Toolbar>
+        {voter?.voter_type && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <Chip
+              label={`${voter.voter_type.charAt(0).toUpperCase()}${voter.voter_type.slice(1)} Voter`}
+              size="small"
+              sx={{ bgcolor: 'rgba(46, 125, 50, 0.15)', color: 'success.main', fontWeight: 600 }}
+            />
+          </Box>
+        )}
         <Divider />
         <List>
           {menuItems.map((item) => (
@@ -73,10 +71,10 @@ const VoterSidenav: React.FC<VoterSidenavProps> = ({ children }) => {
                 selected={location.pathname === item.path}
                 sx={{
                   '&.Mui-selected': {
-                    bgcolor: 'primary.main',
+                    bgcolor: 'success.main',
                     color: 'white',
                     '&:hover': {
-                      bgcolor: 'primary.dark',
+                      bgcolor: 'success.dark',
                     },
                     '& .MuiListItemIcon-root': {
                       color: 'white',
@@ -84,7 +82,7 @@ const VoterSidenav: React.FC<VoterSidenavProps> = ({ children }) => {
                   },
                 }}
               >
-                <ListItemIcon sx={{ color: 'primary.main' }}>
+                <ListItemIcon sx={{ color: 'success.main' }}>
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText primary={item.text} />
@@ -126,7 +124,7 @@ const VoterSidenav: React.FC<VoterSidenavProps> = ({ children }) => {
     <Box sx={{ display: 'flex' }}>
       {/* Mobile Menu Button */}
       <Fab
-        color="primary"
+        color="success"
         aria-label="open drawer"
         onClick={handleDrawerToggle}
         sx={{
@@ -175,18 +173,11 @@ const VoterSidenav: React.FC<VoterSidenavProps> = ({ children }) => {
       </Box>
 
       {/* Main content */}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          minHeight: '100vh',
-          bgcolor: 'background.default',
-        }}
-      >
+      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh', bgcolor: 'rgba(46, 125, 50, 0.04)' }}>
         {children}
       </Box>
+
+      <GeminiChatWidget />
     </Box>
   )
 }

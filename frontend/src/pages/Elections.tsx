@@ -34,6 +34,7 @@ import ArchiveIcon from '@mui/icons-material/Archive'
 import UnarchiveIcon from '@mui/icons-material/Unarchive'
 import Sidenav from '../components/Sidenav'
 import CreateElection from '../components/CreateElection'
+import StatusModal from '../components/StatusModal'
 import { useGetElections, useDeleteElection } from '../hooks/ElectionHooks'
 import { getImageUrl } from '../utils/imageUtils'
 
@@ -47,6 +48,19 @@ const getStatusColor = (status: string) => {
       return { bgcolor: 'rgba(158, 158, 158, 0.1)', color: '#9e9e9e', label: 'Ended' }
     default:
       return { bgcolor: 'rgba(158, 158, 158, 0.1)', color: '#9e9e9e', label: 'Unknown' }
+  }
+}
+
+const getTypeConfig = (type: 'school' | 'corporate' | 'barangay') => {
+  switch (type) {
+    case 'school':
+      return { label: 'School', bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32' }
+    case 'corporate':
+      return { label: 'Corporate', bgcolor: 'rgba(21, 101, 192, 0.12)', color: '#1565c0' }
+    case 'barangay':
+      return { label: 'Barangay', bgcolor: 'rgba(239, 108, 0, 0.12)', color: '#ef6c00' }
+    default:
+      return { label: 'General', bgcolor: 'rgba(158, 158, 158, 0.12)', color: '#6d6d6d' }
   }
 }
 
@@ -71,10 +85,40 @@ export default function Elections() {
   const [sortBy, setSortBy] = React.useState<SortOption>('date_desc')
   const [viewMode, setViewMode] = React.useState<ViewMode>('card')
   const [showArchived, setShowArchived] = React.useState(false)
+  const [modalState, setModalState] = React.useState<{
+    open: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({
+    open: false,
+    type: 'success',
+    title: '',
+    message: '',
+  })
   
+  const MODIFICATION_LOCK_MESSAGE = 'Elections can only be modified more than 24 hours before they start and cannot be changed once they are ongoing or completed.'
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000
+
   const navigate = useNavigate()
   const { data: elections = [], isLoading, error } = useGetElections(showArchived)
   const { mutate: deleteElection } = useDeleteElection()
+
+  const selectedElectionData = React.useMemo(
+    () => elections.find((election) => election.id === selectedElection) || null,
+    [elections, selectedElection]
+  )
+
+  const canModifyElection = React.useCallback((election: (typeof elections)[number] | null) => {
+    if (!election) return false
+    if (election.is_archived) return false
+    const status = election.status
+    if (status === 'ongoing' || status === 'ended') return false
+    const startTime = new Date(election.start_date).getTime()
+    if (Number.isNaN(startTime)) return false
+    const nowTime = Date.now()
+    return startTime - nowTime > ONE_DAY_MS
+  }, [])
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, electionId: number) => {
     setAnchorEl(event.currentTarget)
@@ -86,28 +130,80 @@ export default function Elections() {
     setSelectedElection(null)
   }
 
-  const handleViewDetails = (electionId?: number) => {
-    const id = electionId || selectedElection
-    if (id) {
-      navigate(`/elections/${id}/candidates`)
+  const handleViewDetails = (election?: (typeof elections)[number]) => {
+    const targetElection = election || selectedElectionData
+    if (!targetElection) {
+      handleMenuClose()
+      return
+    }
+
+    if (targetElection.status === 'ended') {
+      navigate(`/results?electionId=${targetElection.id}`)
+    } else {
+      navigate(`/elections/${targetElection.id}/candidates`)
     }
     handleMenuClose()
   }
 
   const handleEdit = () => {
+    const election = selectedElectionData
+    if (!election || !canModifyElection(election)) {
+      setModalState({
+        open: true,
+        type: 'error',
+        title: 'Editing locked',
+        message: MODIFICATION_LOCK_MESSAGE,
+      })
+      handleMenuClose()
+      return
+    }
+
     console.log('Edit election:', selectedElection)
     handleMenuClose()
   }
 
   const handleDelete = () => {
-    if (selectedElection) {
-      deleteElection({ id: selectedElection, archive: true })
+    const election = selectedElectionData
+    if (!election || !canModifyElection(election)) {
+      setModalState({
+        open: true,
+        type: 'error',
+        title: 'Action not allowed',
+        message: MODIFICATION_LOCK_MESSAGE,
+      })
+      handleMenuClose()
+      return
     }
+
+    deleteElection({ id: election.id, archive: true }, {
+      onSuccess: () => {
+        setModalState({
+          open: true,
+          type: 'success',
+          title: 'Election Archived!',
+          message: 'The election has been successfully archived.',
+        })
+      },
+      onError: (error: any) => {
+        setModalState({
+          open: true,
+          type: 'error',
+          title: 'Archive Failed',
+          message: error?.message || 'Failed to archive election. Please try again.',
+        })
+      },
+    })
     handleMenuClose()
   }
 
   const handleElectionCreated = () => {
     setOpenCreateDialog(false)
+    setModalState({
+      open: true,
+      type: 'success',
+      title: 'Election Created!',
+      message: 'The election has been successfully created.',
+    })
   }
 
   // Sort elections based on selected option
@@ -248,7 +344,10 @@ export default function Elections() {
           >
             {sortedElections.map((election) => {
               const statusInfo = getStatusColor(election.status || 'not_started')
+              const typeConfig = getTypeConfig(election.election_type)
               const imageUrl = getImageUrl(election.img_url)
+              const isEnded = election.status === 'ended'
+              const primaryButtonLabel = isEnded ? 'See Results' : 'Manage Candidates'
               
               return (
                 <Card
@@ -329,6 +428,19 @@ export default function Elections() {
                       }}
                     />
 
+                    {/* Election Type */}
+                    <Chip
+                      label={typeConfig.label}
+                      size="small"
+                      sx={{
+                        mb: 1,
+                        bgcolor: typeConfig.bgcolor,
+                        color: typeConfig.color,
+                        fontWeight: 600,
+                        height: 22,
+                      }}
+                    />
+
                     {/* Title */}
                     <Typography
                       variant="h6"
@@ -386,14 +498,14 @@ export default function Elections() {
                       fullWidth
                       sx={{
                         textTransform: 'none',
-                        bgcolor: 'grey.800',
+                        bgcolor: isEnded ? 'primary.main' : 'grey.800',
                         '&:hover': {
-                          bgcolor: 'grey.900',
+                          bgcolor: isEnded ? 'primary.dark' : 'grey.900',
                         },
                       }}
-                      onClick={() => handleViewDetails(election.id)}
+                      onClick={() => handleViewDetails(election)}
                     >
-                      View Details
+                      {primaryButtonLabel}
                     </Button>
                   </CardContent>
                 </Card>
@@ -410,6 +522,7 @@ export default function Elections() {
                 <TableRow sx={{ bgcolor: 'grey.50' }}>
                   <TableCell sx={{ fontWeight: 600 }}>Election</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Start Date</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>End Date</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
@@ -419,7 +532,10 @@ export default function Elections() {
               <TableBody>
                 {sortedElections.map((election) => {
                   const statusInfo = getStatusColor(election.status || 'not_started')
+                  const typeConfig = getTypeConfig(election.election_type)
                   const imageUrl = getImageUrl(election.img_url)
+                  const isEnded = election.status === 'ended'
+                  const viewLabel = isEnded ? 'See Results' : 'View'
                   
                   return (
                     <TableRow 
@@ -467,6 +583,18 @@ export default function Elections() {
                         />
                       </TableCell>
                       <TableCell>
+                        <Chip
+                          label={typeConfig.label}
+                          size="small"
+                          sx={{
+                            bgcolor: typeConfig.bgcolor,
+                            color: typeConfig.color,
+                            fontWeight: 600,
+                            fontSize: '0.75rem',
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
                         <Typography variant="body2">
                           {formatDateTime(election.start_date)}
                         </Typography>
@@ -493,11 +621,12 @@ export default function Elections() {
                       <TableCell align="right">
                         <Button
                           size="small"
-                          variant="outlined"
-                          onClick={() => handleViewDetails(election.id)}
+                          variant={isEnded ? 'contained' : 'outlined'}
+                          color={isEnded ? 'primary' : 'inherit'}
+                          onClick={() => handleViewDetails(election)}
                           sx={{ textTransform: 'none', mr: 1 }}
                         >
-                          View
+                          {viewLabel}
                         </Button>
                         <IconButton
                           size="small"
@@ -528,9 +657,20 @@ export default function Elections() {
             horizontal: 'right',
           }}
         >
-          <MenuItem onClick={() => handleViewDetails()}>View Details</MenuItem>
-          <MenuItem onClick={handleEdit}>Edit</MenuItem>
-          <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+          <MenuItem onClick={() => handleViewDetails()}>
+            {selectedElectionData?.status === 'ended' ? 'See Results' : 'View Details'}
+          </MenuItem>
+          <MenuItem
+            onClick={handleEdit}
+            disabled={!canModifyElection(selectedElectionData)}
+          >
+            Edit
+          </MenuItem>
+          <MenuItem
+            onClick={handleDelete}
+            disabled={!canModifyElection(selectedElectionData)}
+            sx={{ color: 'error.main', '&.Mui-disabled': { color: 'text.disabled' } }}
+          >
             Delete
           </MenuItem>
         </Menu>
@@ -540,6 +680,15 @@ export default function Elections() {
           open={openCreateDialog}
           onClose={() => setOpenCreateDialog(false)}
           onSuccess={handleElectionCreated}
+        />
+
+        {/* Status Modal */}
+        <StatusModal
+          open={modalState.open}
+          onClose={() => setModalState({ ...modalState, open: false })}
+          type={modalState.type}
+          title={modalState.title}
+          message={modalState.message}
         />
       </Container>
     </Sidenav>

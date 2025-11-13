@@ -35,9 +35,11 @@ import ArchiveIcon from '@mui/icons-material/Archive'
 import UnarchiveIcon from '@mui/icons-material/Unarchive'
 import Sidenav from '../components/Sidenav'
 import CreateCandidates from '../components/CreateCandidates'
+import StatusModal from '../components/StatusModal'
 import { useGetElection } from '../hooks/ElectionHooks'
 import { useGetCandidates, useDeleteCandidate, type Candidate } from '../hooks/CandidateHooks'
 import { getImageUrl } from '../utils/imageUtils'
+import Tooltip from '@mui/material/Tooltip'
 
 const formatDateTime = (dateString: string) => {
   const date = new Date(dateString)
@@ -46,7 +48,7 @@ const formatDateTime = (dateString: string) => {
     day: 'numeric',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit',
+    minute: '2-digit',    
   })
 }
 
@@ -63,6 +65,19 @@ const getStatusColor = (status: string) => {
   }
 }
 
+const getTypeConfig = (type: 'school' | 'corporate' | 'barangay') => {
+  switch (type) {
+    case 'school':
+      return { label: 'School Election', color: '#2e7d32', bgcolor: 'rgba(46, 125, 50, 0.12)' }
+    case 'corporate':
+      return { label: 'Corporate Election', color: '#1565c0', bgcolor: 'rgba(21, 101, 192, 0.12)' }
+    case 'barangay':
+      return { label: 'Barangay Election', color: '#ef6c00', bgcolor: 'rgba(239, 108, 0, 0.12)' }
+    default:
+      return { label: 'General', color: '#6d6d6d', bgcolor: 'rgba(109, 109, 109, 0.12)' }
+  }
+}
+
 type SortOption = 'name_asc' | 'name_desc' | 'party' | 'position' | 'date_asc' | 'date_desc'
 type ViewMode = 'card' | 'table'
 
@@ -76,6 +91,17 @@ export default function Candidates() {
   const [sortBy, setSortBy] = React.useState<SortOption>('name_asc')
   const [viewMode, setViewMode] = React.useState<ViewMode>('card')
   const [showArchived, setShowArchived] = React.useState(false)
+  const [modalState, setModalState] = React.useState<{
+    open: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({
+    open: false,
+    type: 'success',
+    title: '',
+    message: '',
+  })
   
   // Fetch election details
   const { data: election, isLoading: electionLoading, error: electionError } = useGetElection(
@@ -91,7 +117,33 @@ export default function Candidates() {
   
   const { mutate: deleteCandidate } = useDeleteCandidate()
 
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000
+  const canModifyElection = React.useMemo(() => {
+    if (!election) return false
+    if (election.is_archived) return false
+    if (election.status === 'ongoing' || election.status === 'ended') return false
+    const startTime = new Date(election.start_date).getTime()
+    if (Number.isNaN(startTime)) return false
+    return startTime - Date.now() > ONE_DAY_MS
+  }, [election])
+
+  const modificationLockMessage = 'Candidate management is locked within 24 hours of the election start and while an election is ongoing or completed.'
+
+  const electionTypeConfig = React.useMemo(
+    () => (election ? getTypeConfig(election.election_type) : null),
+    [election]
+  )
+
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, candidateId: number) => {
+    if (!canModifyElection) {
+      setModalState({
+        open: true,
+        type: 'error',
+        title: 'Action not allowed',
+        message: modificationLockMessage,
+      })
+      return
+    }
     setAnchorEl(event.currentTarget)
     setMenuCandidateId(candidateId)
   }
@@ -102,6 +154,16 @@ export default function Candidates() {
   }
 
   const handleOpenDialog = (candidate?: Candidate) => {
+    if (!canModifyElection) {
+      setModalState({
+        open: true,
+        type: 'error',
+        title: 'Candidate updates locked',
+        message: modificationLockMessage,
+      })
+      handleMenuClose()
+      return
+    }
     if (candidate) {
       setEditMode(true)
       setSelectedCandidate(candidate)
@@ -121,14 +183,49 @@ export default function Candidates() {
 
   const handleCandidateSuccess = () => {
     handleCloseDialog()
+    setModalState({
+      open: true,
+      type: 'success',
+      title: editMode ? 'Candidate Updated!' : 'Candidate Created!',
+      message: editMode 
+        ? 'The candidate has been successfully updated.' 
+        : 'The candidate has been successfully created.',
+    })
   }
 
   const handleDelete = () => {
+    if (!canModifyElection) {
+      setModalState({
+        open: true,
+        type: 'error',
+        title: 'Action not allowed',
+        message: modificationLockMessage,
+      })
+      handleMenuClose()
+      return
+    }
     if (menuCandidateId && electionId) {
       deleteCandidate({
         id: menuCandidateId,
         electionId: parseInt(electionId),
         archive: true,
+      }, {
+        onSuccess: () => {
+          setModalState({
+            open: true,
+            type: 'success',
+            title: 'Candidate Archived!',
+            message: 'The candidate has been successfully archived.',
+          })
+        },
+        onError: (error: any) => {
+          setModalState({
+            open: true,
+            type: 'error',
+            title: 'Archive Failed',
+            message: error?.message || 'Failed to archive candidate. Please try again.',
+          })
+        },
       })
     }
     handleMenuClose()
@@ -180,6 +277,12 @@ export default function Candidates() {
           </Alert>
         )}
 
+        {!canModifyElection && election && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            Candidate management for this election is read-only. {modificationLockMessage}
+          </Alert>
+        )}
+
         {election && (
           <Paper 
             elevation={2}
@@ -224,6 +327,18 @@ export default function Candidates() {
                       fontWeight: 600,
                     }}
                   />
+                  {electionTypeConfig && (
+                    <Chip
+                      label={electionTypeConfig.label}
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(255, 255, 255, 0.18)',
+                        color: 'white',
+                        fontWeight: 600,
+                        border: '1px solid rgba(255, 255, 255, 0.4)',
+                      }}
+                    />
+                  )}
                 </Box>
 
                 <Typography variant="body1" sx={{ mb: 2, opacity: 0.95 }}>
@@ -260,14 +375,23 @@ export default function Candidates() {
             </Typography>
           </Box>
           {election && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog()}
-              sx={{ textTransform: 'none' }}
+            <Tooltip
+              title={!canModifyElection ? modificationLockMessage : ''}
+              arrow
+              disableHoverListener={canModifyElection}
             >
-              Add Candidate
-            </Button>
+              <span>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleOpenDialog()}
+                  sx={{ textTransform: 'none' }}
+                  disabled={!canModifyElection}
+                >
+                  Add Candidate
+                </Button>
+              </span>
+            </Tooltip>
           )}
         </Box>
 
@@ -368,6 +492,7 @@ export default function Candidates() {
           >
             {sortedCandidates.map((candidate) => {
               const photoUrl = getImageUrl(candidate.photo_url)
+              const candidateActionLabel = canModifyElection ? 'Edit Candidate' : 'View Candidate'
               
               return (
               <Card
@@ -378,6 +503,9 @@ export default function Candidates() {
                   overflow: 'hidden',
                   position: 'relative',
                   transition: 'transform 0.2s, box-shadow 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
                   '&:hover': {
                     transform: 'translateY(-4px)',
                     boxShadow: 3,
@@ -385,25 +513,34 @@ export default function Candidates() {
                 }}
               >
                 {/* Menu button */}
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleMenuClick(e, candidate.id)
-                  }}
-                  sx={{ 
-                    position: 'absolute', 
-                    top: 8, 
-                    right: 8,
-                    bgcolor: 'rgba(255, 255, 255, 0.9)',
-                    zIndex: 2,
-                    '&:hover': { 
-                      bgcolor: 'white',
-                    },
-                  }}
+                <Tooltip
+                  title={!canModifyElection ? modificationLockMessage : ''}
+                  arrow
+                  disableHoverListener={canModifyElection}
                 >
-                  <MoreVertIcon fontSize="small" />
-                </IconButton>
+                  <span>
+                    <IconButton
+                      size="small"
+                      disabled={!canModifyElection}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMenuClick(e, candidate.id)
+                      }}
+                      sx={{ 
+                        position: 'absolute', 
+                        top: 8, 
+                        right: 8,
+                        bgcolor: 'rgba(255, 255, 255, 0.9)',
+                        zIndex: 2,
+                        '&:hover': { 
+                          bgcolor: 'white',
+                        },
+                      }}
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
 
                 {/* Candidate Image */}
                 <Box
@@ -433,7 +570,14 @@ export default function Candidates() {
                 </Box>
 
                 {/* Card Content */}
-                <CardContent sx={{ p: 2 }}>
+                <CardContent
+                  sx={{
+                    p: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flexGrow: 1,
+                  }}
+                >
                   {/* Party Badge */}
                   <Chip
                     label={candidate.party_code}
@@ -497,24 +641,35 @@ export default function Candidates() {
                   ) : null}
 
                   {/* View Details Button */}
-                  <Button
-                    variant="contained"
-                    size="small"
-                    fullWidth
-                    sx={{ 
-                      textTransform: 'none',
-                      bgcolor: 'grey.800',
-                      '&:hover': {
-                        bgcolor: 'grey.900',
-                      },
-                    }}
-                    onClick={() => {
-                      const candidateToEdit = candidates.find((c) => c.id === candidate.id)
-                      if (candidateToEdit) handleOpenDialog(candidateToEdit)
-                    }}
-                  >
-                    View Details
-                  </Button>
+                  <Box sx={{ mt: 'auto' }}>
+                    <Tooltip
+                      title={!canModifyElection ? modificationLockMessage : ''}
+                      arrow
+                      disableHoverListener={canModifyElection}
+                    >
+                      <span>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          fullWidth
+                          sx={{ 
+                            textTransform: 'none',
+                            bgcolor: canModifyElection ? 'grey.800' : 'grey.500',
+                            '&:hover': {
+                              bgcolor: canModifyElection ? 'grey.900' : 'grey.500',
+                            },
+                          }}
+                          disabled={!canModifyElection}
+                          onClick={() => {
+                            const candidateToEdit = candidates.find((c) => c.id === candidate.id)
+                            if (candidateToEdit) handleOpenDialog(candidateToEdit)
+                          }}
+                        >
+                          {candidateActionLabel}
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  </Box>
                 </CardContent>
               </Card>
             )
@@ -606,12 +761,40 @@ export default function Candidates() {
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuClick(e, candidate.id)}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                          <Tooltip
+                            title={!canModifyElection ? modificationLockMessage : ''}
+                            arrow
+                            disableHoverListener={canModifyElection}
+                          >
+                            <span>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                sx={{ textTransform: 'none', bgcolor: canModifyElection ? 'grey.800' : 'grey.500', '&:hover': { bgcolor: canModifyElection ? 'grey.900' : 'grey.500' } }}
+                                disabled={!canModifyElection}
+                                onClick={() => handleOpenDialog(candidate)}
+                              >
+                                {canModifyElection ? 'Edit Candidate' : 'View Candidate'}
+                              </Button>
+                            </span>
+                          </Tooltip>
+                          <Tooltip
+                            title={!canModifyElection ? modificationLockMessage : ''}
+                            arrow
+                            disableHoverListener={canModifyElection}
+                          >
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={!canModifyElection}
+                                onClick={(e) => handleMenuClick(e, candidate.id)}
+                              >
+                                <MoreVertIcon />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   )
@@ -640,10 +823,15 @@ export default function Candidates() {
               const candidate = candidates.find((c) => c.id === menuCandidateId)
               if (candidate) handleOpenDialog(candidate)
             }}
+            disabled={!canModifyElection}
           >
             Edit
           </MenuItem>
-          <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+          <MenuItem
+            onClick={handleDelete}
+            disabled={!canModifyElection}
+            sx={{ color: 'error.main', '&.Mui-disabled': { color: 'text.disabled' } }}
+          >
             Delete
           </MenuItem>
         </Menu>
@@ -657,8 +845,18 @@ export default function Candidates() {
             electionId={parseInt(electionId)}
             initialData={selectedCandidate || undefined}
             editMode={editMode}
+            canModify={canModifyElection}
           />
         )}
+
+        {/* Status Modal */}
+        <StatusModal
+          open={modalState.open}
+          onClose={() => setModalState({ ...modalState, open: false })}
+          type={modalState.type}
+          title={modalState.title}
+          message={modalState.message}
+        />
       </Container>
     </Sidenav>
   )

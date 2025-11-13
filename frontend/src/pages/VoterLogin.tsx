@@ -1,4 +1,5 @@
 import { useNavigate, Navigate } from 'react-router-dom'
+import { useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import TextField from '@mui/material/TextField'
@@ -7,13 +8,13 @@ import Stack from '@mui/material/Stack'
 import FormControl from '@mui/material/FormControl'
 import FormLabel from '@mui/material/FormLabel'
 import InputAdornment from '@mui/material/InputAdornment'
-import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
 import EmailIcon from '@mui/icons-material/Email'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import IconButton from '@mui/material/IconButton'
 import AuthLayout from '../layouts/AuthLayout'
+import StatusModal from '../components/StatusModal'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -38,6 +39,17 @@ export default function VoterLogin() {
   const navigate = useNavigate()
   const loginMutation = useVoterLogin()
   const { isAuthenticated, isLoading: authLoading } = useVoterAuth()
+  const [modalState, setModalState] = useState<{
+    open: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({
+    open: false,
+    type: 'success',
+    title: '',
+    message: '',
+  })
 
   const {
     control,
@@ -54,9 +66,55 @@ export default function VoterLogin() {
   const onSubmit = async (data: VoterLoginFormData) => {
     try {
       await loginMutation.mutateAsync(data)
-      navigate('/voter/home')
+      setModalState({
+        open: true,
+        type: 'success',
+        title: 'Login Successful!',
+        message: 'You have been logged in successfully. Redirecting to home...',
+      })
+      setTimeout(() => {
+        navigate('/voter/home')
+      }, 1500)
     } catch (error: any) {
-      // Error is handled by the mutation error state
+      // Get the HTTP status code and error message from the response
+      const statusCode = error?.response?.status || error?.response?.data?.statusCode
+      const backendMessage = error?.response?.data?.message
+      const errorMessage = backendMessage || error?.message || 'Login failed. Please try again.'
+      
+      // Debug logging
+      console.log('Login error details:', {
+        statusCode,
+        backendMessage,
+        errorMessage,
+        fullResponse: error?.response
+      })
+      
+      // Handle different error cases based on status code
+      if (statusCode === 403) {
+        // Account exists but not verified (HTTP 403 Forbidden)
+        setModalState({
+          open: true,
+          type: 'error',
+          title: 'Account Not Verified',
+          message: backendMessage || 'Your account is not yet verified. Please wait for admin approval or contact the administrator.',
+        })
+      } else if (statusCode === 401) {
+        // Invalid email or password (HTTP 401 Unauthorized)
+        setModalState({
+          open: true,
+          type: 'error',
+          title: 'Invalid Credentials',
+          message: backendMessage || 'The email or password you entered is incorrect. Please try again.',
+        })
+      } else {
+        // Other errors - show the actual error message from backend
+        setModalState({
+          open: true,
+          type: 'error',
+          title: 'Login Failed',
+          message: errorMessage,
+        })
+      }
     }
   }
 
@@ -95,14 +153,6 @@ export default function VoterLogin() {
               Sign in with your email to participate in elections
             </Typography>
           </Stack>
-
-          {loginMutation.error && (
-            <Alert severity="error">
-              {loginMutation.error instanceof Error
-                ? loginMutation.error.message
-                : 'Login failed. Please check your credentials.'}
-            </Alert>
-          )}
 
           <FormControl fullWidth error={!!errors.email}>
             <FormLabel htmlFor="email">Email</FormLabel>
@@ -194,6 +244,15 @@ export default function VoterLogin() {
           </Typography>
         </Stack>
       </Box>
+
+      {/* Status Modal */}
+      <StatusModal
+        open={modalState.open}
+        onClose={() => setModalState({ ...modalState, open: false })}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+      />
     </AuthLayout>
   )
 }

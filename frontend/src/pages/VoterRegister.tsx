@@ -8,14 +8,15 @@ import Stack from '@mui/material/Stack'
 import FormControl from '@mui/material/FormControl'
 import FormLabel from '@mui/material/FormLabel'
 import InputAdornment from '@mui/material/InputAdornment'
-import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import IconButton from '@mui/material/IconButton'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import MenuItem from '@mui/material/MenuItem'
 import AuthLayout from '../layouts/AuthLayout'
+import StatusModal from '../components/StatusModal'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -43,6 +44,12 @@ const voterRegisterSchema = z.object({
     .string()
     .max(20, 'Contact number must be at most 20 characters')
     .optional(),
+  sex: z.enum(['male', 'female', 'other'], {
+    errorMap: () => ({ message: 'Please select your sex' }),
+  }),
+  voter_type: z.enum(['school', 'corporate', 'barangay'], {
+    errorMap: () => ({ message: 'Please select a voter type' }),
+  }),
   password: z
     .string()
     .min(6, 'Password must be at least 6 characters')
@@ -58,8 +65,17 @@ const voterRegisterSchema = z.object({
 type VoterRegisterFormData = z.infer<typeof voterRegisterSchema>
 
 export default function VoterRegister() {
-  const [errorMessage, setErrorMessage] = React.useState<string>('')
-  const [successMessage, setSuccessMessage] = React.useState<string>('')
+  const [modalState, setModalState] = React.useState<{
+    open: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({
+    open: false,
+    type: 'success',
+    title: '',
+    message: '',
+  })
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
   const [imagePreview, setImagePreview] = React.useState<string | null>(null)
   const navigate = useNavigate()
@@ -78,6 +94,8 @@ export default function VoterRegister() {
       lname: '',
       email: '',
       contact_number: '',
+      sex: 'male',
+      voter_type: 'school',
       password: '',
       confirmPassword: '',
     },
@@ -96,9 +114,6 @@ export default function VoterRegister() {
   }
 
   const onSubmit = async (data: VoterRegisterFormData) => {
-    setErrorMessage('')
-    setSuccessMessage('')
-    
     try {
       const result = await createVoterMutation.mutateAsync({
         fname: data.fname,
@@ -107,13 +122,20 @@ export default function VoterRegister() {
         email: data.email,
         contact_number: data.contact_number,
         password: data.password,
+        sex: data.sex,
+        voter_type: data.voter_type,
         v_image: selectedFile || undefined,
         is_verified: false, // Public registration starts unverified
         is_archived: false,
       })
       
       // Show success message with Voter ID
-      setSuccessMessage(`Registration successful! Your Voter ID is: ${result.voters_id}. Redirecting to login...`)
+      setModalState({
+        open: true,
+        type: 'success',
+        title: 'Registration Successful!',
+        message: `Your Voter ID is: ${result.voters_id}. Redirecting to login...`,
+      })
       
       // Redirect after 2 seconds
       setTimeout(() => {
@@ -121,7 +143,12 @@ export default function VoterRegister() {
       }, 2000)
     } catch (error: any) {
       const message = error?.response?.data?.message || error?.message || 'Registration failed. Please try again.'
-      setErrorMessage(message)
+      setModalState({
+        open: true,
+        type: 'error',
+        title: 'Registration Failed',
+        message: message,
+      })
     }
   }
 
@@ -147,18 +174,6 @@ export default function VoterRegister() {
               Create your voter account to participate in elections
             </Typography>
           </Stack>
-
-          {errorMessage && (
-            <Alert severity="error" onClose={() => setErrorMessage('')}>
-              {errorMessage}
-            </Alert>
-          )}
-
-          {successMessage && (
-            <Alert severity="success">
-              {successMessage}
-            </Alert>
-          )}
 
           {/* Photo Upload */}
           <Box>
@@ -343,6 +358,56 @@ export default function VoterRegister() {
             />
           </FormControl>
 
+          <FormControl fullWidth error={!!errors.sex}>
+            <FormLabel htmlFor="sex">Sex</FormLabel>
+            <Controller
+              name="sex"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  id="sex"
+                  select
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  margin="dense"
+                  error={!!errors.sex}
+                  helperText={errors.sex?.message}
+                >
+                  <MenuItem value="male">Male</MenuItem>
+                  <MenuItem value="female">Female</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </TextField>
+              )}
+            />
+          </FormControl>
+
+          <FormControl fullWidth error={!!errors.voter_type}>
+            <FormLabel htmlFor="voter_type">Voter Type</FormLabel>
+            <Controller
+              name="voter_type"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  id="voter_type"
+                  select
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  margin="dense"
+                  error={!!errors.voter_type}
+                  helperText={errors.voter_type?.message}
+                >
+                  <MenuItem value="school">School</MenuItem>
+                  <MenuItem value="corporate">Corporate</MenuItem>
+                  <MenuItem value="barangay">Barangay</MenuItem>
+                </TextField>
+              )}
+            />
+          </FormControl>
+
           <FormControl fullWidth error={!!errors.password}>
             <FormLabel htmlFor="password">Password</FormLabel>
             <Controller
@@ -431,6 +496,15 @@ export default function VoterRegister() {
           </Typography>
         </Stack>
       </Box>
+
+      {/* Status Modal */}
+      <StatusModal
+        open={modalState.open}
+        onClose={() => setModalState({ ...modalState, open: false })}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+      />
     </AuthLayout>
   )
 }

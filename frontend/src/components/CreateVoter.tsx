@@ -12,6 +12,11 @@ import {
   FormControlLabel,
   Checkbox,
   IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
 } from '@mui/material'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -42,6 +47,10 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
       fname: '',
       mname: '',
       lname: '',
+      email: '',
+      contact_number: '',
+      sex: 'male',
+      voter_type: 'school',
       is_verified: false,
       is_archived: false,
     },
@@ -62,6 +71,8 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
         password: '', // Don't populate password for security
         is_verified: Boolean(voter.is_verified), // Explicitly convert to boolean
         is_archived: Boolean(voter.is_archived), // Explicitly convert to boolean
+        sex: voter.sex ?? 'other',
+        voter_type: voter.voter_type ?? 'school',
       })
       setImagePreview(voter.v_image_url)
       setSelectedFile(null)
@@ -73,6 +84,8 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
         email: '',
         contact_number: '',
         password: '',
+        sex: 'male',
+        voter_type: 'school',
         is_verified: false,
         is_archived: false,
       })
@@ -93,6 +106,8 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
           contact_number: data.contact_number,
           password: data.password, // Only updates if provided
           v_image: selectedFile || undefined,
+          sex: data.sex,
+          voter_type: data.voter_type,
           is_verified: data.is_verified,
           is_archived: data.is_archived,
         })
@@ -106,6 +121,8 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
           contact_number: data.contact_number,
           password: data.password || 'Pollify123', // Default password if not provided
           v_image: selectedFile || undefined,
+          sex: data.sex,
+          voter_type: data.voter_type,
           is_verified: data.is_verified,
           is_archived: data.is_archived,
         })
@@ -290,6 +307,52 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
                   helperText={errors.contact_number?.message}
                   fullWidth
                 />
+              )}
+            />
+
+            {/* Sex */}
+            <Controller
+              name="sex"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth error={!!errors.sex}>
+                  <InputLabel id="sex-label">Sex *</InputLabel>
+                  <Select
+                    {...field}
+                    labelId="sex-label"
+                    label="Sex *"
+                    value={field.value}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  >
+                    <MenuItem value="male">Male</MenuItem>
+                    <MenuItem value="female">Female</MenuItem>
+                    <MenuItem value="other">Other</MenuItem>
+                  </Select>
+                  {errors.sex && <FormHelperText>{errors.sex.message}</FormHelperText>}
+                </FormControl>
+              )}
+            />
+
+            {/* Voter Type */}
+            <Controller
+              name="voter_type"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth error={!!errors.voter_type}>
+                  <InputLabel id="voter-type-label">Voter Type *</InputLabel>
+                  <Select
+                    {...field}
+                    labelId="voter-type-label"
+                    label="Voter Type *"
+                    value={field.value}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  >
+                    <MenuItem value="school">School</MenuItem>
+                    <MenuItem value="corporate">Corporate</MenuItem>
+                    <MenuItem value="barangay">Barangay</MenuItem>
+                  </Select>
+                  {errors.voter_type && <FormHelperText>{errors.voter_type.message}</FormHelperText>}
+                </FormControl>
               )}
             />
 

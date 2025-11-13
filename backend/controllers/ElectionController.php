@@ -15,7 +15,9 @@ class ElectionController extends GlobalUtil {
     }
 
     // Create a new election
-    public function createElection($election_title, $description, $start_date, $end_date, $imgFile = null) {
+    private array $allowedElectionTypes = ['school', 'corporate', 'barangay'];
+
+    public function createElection($election_title, $description, $start_date, $end_date, $election_type = 'school', $imgFile = null) {
         try {
             // Check if user is authenticated
             if (!$this->isAuthenticated()) {
@@ -39,6 +41,12 @@ class ElectionController extends GlobalUtil {
                 return $this->sendErrorResponse("End date must be after start date", 400);
             }
 
+            // Validate election type
+            $normalizedType = strtolower(trim($election_type ?? ''));
+            if (empty($normalizedType) || !in_array($normalizedType, $this->allowedElectionTypes, true)) {
+                return $this->sendErrorResponse("Election type must be one of: school, corporate, barangay", 400);
+            }
+
             // Handle file upload
             $img = null;
             if ($imgFile && isset($imgFile['tmp_name']) && !empty($imgFile['tmp_name'])) {
@@ -51,12 +59,13 @@ class ElectionController extends GlobalUtil {
 
             $created_by = $_SESSION['user_id'];
 
-            $sql = "INSERT INTO elections (election_title, description, start_date, end_date, img, created_by) 
-                    VALUES (:election_title, :description, :start_date, :end_date, :img, :created_by)";
+            $sql = "INSERT INTO elections (election_title, description, election_type, start_date, end_date, img, created_by) 
+                    VALUES (:election_title, :description, :election_type, :start_date, :end_date, :img, :created_by)";
             
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':election_title', $election_title);
             $stmt->bindParam(':description', $description);
+            $stmt->bindParam(':election_type', $normalizedType);
             $stmt->bindParam(':start_date', $start_date);
             $stmt->bindParam(':end_date', $end_date);
             $stmt->bindParam(':img', $img);
@@ -149,7 +158,7 @@ class ElectionController extends GlobalUtil {
     }
 
     // Update election
-    public function updateElection($id, $election_title, $description, $start_date, $end_date, $imgFile = null) {
+    public function updateElection($id, $election_title, $description, $start_date, $end_date, $election_type = null, $imgFile = null) {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->sendErrorResponse("Unauthorized: Please login", 401);
@@ -191,13 +200,26 @@ class ElectionController extends GlobalUtil {
                 $img = $uploadResult['filename'];
             }
 
-            $sql = "UPDATE elections SET 
+            $updateFields = "
                     election_title = :election_title,
                     description = :description,
                     start_date = :start_date,
                     end_date = :end_date,
                     img = :img
-                    WHERE id = :id";
+            ";
+
+            $normalizedType = null;
+            if ($election_type !== null) {
+                $normalizedType = strtolower(trim($election_type));
+                if (!in_array($normalizedType, $this->allowedElectionTypes, true)) {
+                    return $this->sendErrorResponse("Election type must be one of: school, corporate, barangay", 400);
+                }
+                $updateFields .= ",
+                    election_type = :election_type
+                ";
+            }
+
+            $sql = "UPDATE elections SET " . $updateFields . " WHERE id = :id";
             
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':id', $id);
@@ -206,6 +228,9 @@ class ElectionController extends GlobalUtil {
             $stmt->bindParam(':start_date', $start_date);
             $stmt->bindParam(':end_date', $end_date);
             $stmt->bindParam(':img', $img);
+            if ($normalizedType !== null) {
+                $stmt->bindParam(':election_type', $normalizedType);
+            }
             
             if ($stmt->execute()) {
                 $updatedElection = $this->getElectionById($id);
@@ -294,12 +319,27 @@ class ElectionController extends GlobalUtil {
                 return $this->sendErrorResponse("Unauthorized", 401);
             }
 
-            $sql = "SELECT id, election_title, description, start_date, end_date, img, created
+            $voterType = $_SESSION['voter_type'] ?? null;
+            $sql = "SELECT id, election_title, description, election_type, start_date, end_date, img, created
                     FROM elections
-                    WHERE is_archived = FALSE
-                    ORDER BY start_date ASC";
+                    WHERE is_archived = FALSE";
+
+            $filterByType = false;
+            $normalizedVoterType = null;
+            if ($voterType) {
+                $normalizedVoterType = strtolower(trim($voterType));
+                if (in_array($normalizedVoterType, $this->allowedElectionTypes, true)) {
+                    $sql .= " AND election_type = :voter_type";
+                    $filterByType = true;
+                }
+            }
+
+            $sql .= " ORDER BY start_date ASC";
             
             $stmt = $this->pdo->prepare($sql);
+            if ($filterByType && $normalizedVoterType !== null) {
+                $stmt->bindParam(':voter_type', $normalizedVoterType);
+            }
             $stmt->execute();
             
             $elections = $stmt->fetchAll(PDO::FETCH_ASSOC);

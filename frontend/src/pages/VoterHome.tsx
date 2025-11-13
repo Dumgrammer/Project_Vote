@@ -24,10 +24,6 @@ const VoterHome = () => {
   const ongoing = elections.filter((e) => e.status === 'ongoing')
   const ended = elections.filter((e) => e.status === 'ended')
 
-  const handleElectionClick = (electionId: number) => {
-    navigate(`/voter/election/${electionId}/candidates`)
-  }
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ongoing':
@@ -38,6 +34,19 @@ const VoterHome = () => {
         return { bgcolor: 'rgba(158, 158, 158, 0.1)', color: '#9e9e9e', label: 'Ended' }
       default:
         return { bgcolor: 'rgba(158, 158, 158, 0.1)', color: '#9e9e9e', label: 'Unknown' }
+    }
+  }
+
+  const getTypeConfig = (type: 'school' | 'corporate' | 'barangay') => {
+    switch (type) {
+      case 'school':
+        return { label: 'School Election', bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32' }
+      case 'corporate':
+        return { label: 'Corporate Election', bgcolor: 'rgba(21, 101, 192, 0.12)', color: '#1565c0' }
+      case 'barangay':
+        return { label: 'Barangay Election', bgcolor: 'rgba(239, 108, 0, 0.12)', color: '#ef6c00' }
+      default:
+        return { label: 'General Election', bgcolor: 'rgba(158, 158, 158, 0.12)', color: '#6d6d6d' }
     }
   }
 
@@ -72,20 +81,27 @@ const VoterHome = () => {
           {electionList.map((election) => {
             const statusInfo = getStatusColor(election.status || 'not_started')
             const imageUrl = getImageUrl(election.img_url)
+            const typeConfig = getTypeConfig(election.election_type)
             
             return (
               <Card
                 key={election.id}
                 sx={{
-                  maxWidth: 345,
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                  position: 'relative',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: 3,
-                  },
+                maxWidth: 345,
+                borderRadius: 2,
+                overflow: 'hidden',
+                position: 'relative',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                border: '1px solid',
+                borderColor: 'success.light',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4,
+                  borderColor: 'success.main',
+                },
                 }}
               >
                 {/* Election Image */}
@@ -116,20 +132,41 @@ const VoterHome = () => {
                 </Box>
 
                 {/* Card Content */}
-                <CardContent sx={{ p: 2 }}>
+            <CardContent
+              sx={{
+                p: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                flexGrow: 1,
+                bgcolor: 'rgba(46, 125, 50, 0.04)',
+              }}
+            >
                   {/* Status Badge */}
                   <Chip
                     label={statusInfo.label}
                     size="small"
                     sx={{
                       mb: 1,
-                      bgcolor: statusInfo.bgcolor,
-                      color: statusInfo.color,
+                  bgcolor: 'rgba(46, 125, 50, 0.15)',
+                  color: '#2e7d32',
                       fontSize: '0.75rem',
                       height: 24,
                       fontWeight: 600,
                     }}
                   />
+
+                <Chip
+                  label={typeConfig.label}
+                  size="small"
+                  sx={{
+                    mb: 1,
+                    bgcolor: typeConfig.bgcolor,
+                    color: typeConfig.color,
+                    fontSize: '0.75rem',
+                    height: 24,
+                    fontWeight: 600,
+                  }}
+                />
 
                   {/* Title */}
                   <Typography
@@ -171,21 +208,28 @@ const VoterHome = () => {
                     End: {formatDateTime(election.end_date)}
                   </Typography>
 
-                  {/* View Details Button */}
+                  {/* View Button - Changes based on election status */}
                   <Button
                     variant="contained"
                     size="small"
                     fullWidth
                     sx={{
                       textTransform: 'none',
-                      bgcolor: 'grey.800',
+                mt: 'auto',
+                bgcolor: election.status === 'ended' ? 'success.main' : '#1b5e20',
                       '&:hover': {
-                        bgcolor: 'grey.900',
+                  bgcolor: election.status === 'ended' ? 'success.dark' : '#124116',
                       },
                     }}
-                    onClick={() => handleElectionClick(election.id)}
+                    onClick={() => {
+                      if (election.status === 'ended') {
+                        navigate(`/voter/election/${election.id}/results`)
+                      } else {
+                        navigate(`/voter/election/${election.id}/candidates`)
+                      }
+                    }}
                   >
-                    View Details
+                    {election.status === 'ended' ? 'View Results' : 'View Details'}
                   </Button>
                 </CardContent>
               </Card>

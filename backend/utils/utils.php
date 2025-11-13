@@ -74,6 +74,7 @@ class GlobalUtil{
                 img VARCHAR(255) DEFAULT NULL,
                 election_title VARCHAR(255) NOT NULL,
                 description TEXT,
+                election_type ENUM('school', 'corporate', 'barangay') NOT NULL DEFAULT 'school',
                 start_date DATETIME NOT NULL,
                 end_date DATETIME NOT NULL,
                 created_by INT NOT NULL,
@@ -82,6 +83,7 @@ class GlobalUtil{
                 is_archived BOOLEAN DEFAULT FALSE,
                 FOREIGN KEY (created_by) REFERENCES admin(id) ON DELETE CASCADE,
                 INDEX idx_created_by (created_by),
+                INDEX idx_election_type (election_type),
                 INDEX idx_is_archived (is_archived),
                 INDEX idx_start_date (start_date),
                 INDEX idx_end_date (end_date)
@@ -177,6 +179,8 @@ class GlobalUtil{
                 lname VARCHAR(255) NOT NULL,
                 email VARCHAR(255) NOT NULL UNIQUE,
                 contact_number VARCHAR(20) DEFAULT NULL,
+                sex ENUM('male', 'female', 'other') DEFAULT NULL,
+                voter_type ENUM('school', 'corporate', 'barangay') NOT NULL DEFAULT 'school',
                 password VARCHAR(255) NOT NULL,
                 is_verified BOOLEAN DEFAULT FALSE,
                 is_archived BOOLEAN DEFAULT FALSE,
@@ -187,6 +191,8 @@ class GlobalUtil{
                 FOREIGN KEY (created_by) REFERENCES admin(id) ON DELETE SET NULL,
                 INDEX idx_voters_id (voters_id),
                 INDEX idx_email (email),
+                INDEX idx_sex (sex),
+                INDEX idx_voter_type (voter_type),
                 INDEX idx_is_verified (is_verified),
                 INDEX idx_is_archived (is_archived),
                 INDEX idx_created_by (created_by)

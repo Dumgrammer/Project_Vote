@@ -49,6 +49,8 @@ class VoterAuthController extends GlobalUtil {
             $_SESSION['voter_mname'] = $voter['mname'];
             $_SESSION['voter_lname'] = $voter['lname'];
             $_SESSION['voter_fullname'] = trim($voter['fname'] . ' ' . ($voter['mname'] ? $voter['mname'] . ' ' : '') . $voter['lname']);
+            $_SESSION['voter_sex'] = $voter['sex'];
+            $_SESSION['voter_type'] = $voter['voter_type'];
 
             return $this->sendResponse([
                 'message' => 'Login successful',
@@ -59,7 +61,9 @@ class VoterAuthController extends GlobalUtil {
                     'fname' => $voter['fname'],
                     'mname' => $voter['mname'],
                     'lname' => $voter['lname'],
-                    'fullname' => $_SESSION['voter_fullname']
+                    'fullname' => $_SESSION['voter_fullname'],
+                    'sex' => $voter['sex'],
+                    'voter_type' => $voter['voter_type']
                 ]
             ], 200);
 
@@ -84,7 +88,9 @@ class VoterAuthController extends GlobalUtil {
                     'fname' => $_SESSION['voter_fname'],
                     'mname' => $_SESSION['voter_mname'],
                     'lname' => $_SESSION['voter_lname'],
-                    'fullname' => $_SESSION['voter_fullname']
+                    'fullname' => $_SESSION['voter_fullname'],
+                    'sex' => $_SESSION['voter_sex'] ?? null,
+                    'voter_type' => $_SESSION['voter_type'] ?? null
                 ]
             ], 200);
         } else {
@@ -109,6 +115,8 @@ class VoterAuthController extends GlobalUtil {
         unset($_SESSION['voter_mname']);
         unset($_SESSION['voter_lname']);
         unset($_SESSION['voter_fullname']);
+        unset($_SESSION['voter_sex']);
+        unset($_SESSION['voter_type']);
 
         return $this->sendResponse([
             'message' => 'Logout successful'
@@ -141,6 +149,8 @@ class VoterAuthController extends GlobalUtil {
                         lname,
                         email,
                         contact_number,
+                        sex,
+                        voter_type,
                         is_verified,
                         date_registered,
                         date_verified,
@@ -239,6 +249,15 @@ class VoterAuthController extends GlobalUtil {
                 $fields[] = "contact_number = ?";
                 $values[] = $data['contact_number'];
             }
+            if (isset($data['sex']) && in_array($data['sex'], ['male', 'female', 'other'], true)) {
+                $fields[] = "sex = ?";
+                $values[] = $data['sex'];
+            }
+            if (isset($data['voter_type']) && in_array($data['voter_type'], ['school', 'corporate', 'barangay'], true)) {
+                $fields[] = "voter_type = ?";
+                $values[] = $data['voter_type'];
+                $_SESSION['voter_type'] = $data['voter_type'];
+            }
             // Only update password if provided and not empty
             if (isset($data['password']) && !empty(trim($data['password']))) {
                 $fields[] = "password = ?";
@@ -268,6 +287,10 @@ class VoterAuthController extends GlobalUtil {
             if (isset($data['mname'])) $_SESSION['voter_mname'] = $data['mname'];
             if (isset($data['lname'])) $_SESSION['voter_lname'] = $data['lname'];
             if (isset($data['email'])) $_SESSION['voter_email'] = $data['email'];
+            if (isset($data['sex']) && in_array($data['sex'], ['male', 'female', 'other'], true)) {
+                $_SESSION['voter_sex'] = $data['sex'];
+            }
+            // voter_type session is handled during validation above
             
             // Update fullname in session
             $_SESSION['voter_fullname'] = trim(

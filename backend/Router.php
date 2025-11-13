@@ -38,6 +38,8 @@
     require_once('./controllers/PartyController.php');
     require_once('./controllers/VoterController.php');
     require_once('./controllers/VoterAuthController.php');
+    require_once('./controllers/ResultsController.php');
+    require_once('./controllers/DashboardController.php');
 
     
     $con = new DatabaseAccess();
@@ -49,6 +51,8 @@
     $partyController = new PartyController($con);
     $voterController = new VoterController($pdo);
     $voterAuthController = new VoterAuthController($pdo);
+    $resultsController = new ResultsController($pdo);
+    $dashboardController = new DashboardController($pdo);
     
     
     // Check if 'request' parameter is set in the request
@@ -116,6 +120,7 @@
                     $description = $_POST['description'] ?? '';
                     $start_date = $_POST['start_date'] ?? null;
                     $end_date = $_POST['end_date'] ?? null;
+                    $election_type = $_POST['election_type'] ?? 'school';
                     $imgFile = $_FILES['img'] ?? null;
                     
                     if ($election_title && $start_date && $end_date) {
@@ -124,6 +129,7 @@
                             $description,
                             $start_date,
                             $end_date,
+                            $election_type,
                             $imgFile
                         );
                         echo json_encode($response);
@@ -294,6 +300,17 @@
                     }
                     break;
                 
+                case 'election-results':
+                    if (isset($_GET['election_id'])) {
+                        $response = $resultsController->getElectionResults($_GET['election_id']);
+                        echo json_encode($response);
+                        http_response_code($response['statusCode']);
+                    } else {
+                        echo json_encode(["error" => "Election ID is required"]);
+                        http_response_code(400);
+                    }
+                    break;
+                
                 case 'get':
                     echo json_encode(["message" => "Hello World"]);
                     http_response_code(200);
@@ -427,6 +444,23 @@
                     }
                     break;
                 
+                case 'dashboard-stats':
+                    $response = $dashboardController->getDashboardStats();
+                    echo json_encode($response);
+                    http_response_code($response['statusCode']);
+                    break;
+                
+                case 'election-analytics':
+                    if (isset($_GET['election_id'])) {
+                        $response = $dashboardController->getElectionAnalytics($_GET['election_id']);
+                        echo json_encode($response);
+                        http_response_code($response['statusCode']);
+                    } else {
+                        echo json_encode(["error" => "Election ID is required"]);
+                        http_response_code(400);
+                    }
+                    break;
+                
                 default:
                     echo json_encode(["error" => "Method not available"]);
                     http_response_code(404);
@@ -442,12 +476,14 @@
                         if (isset($data->election_title) && isset($data->start_date) && isset($data->end_date)) {
                             $description = $data->description ?? '';
                             $img = $data->img ?? null;
+                            $election_type = $data->election_type ?? null;
                             $response = $electionController->updateElection(
                                 $request[1],
                                 $data->election_title,
                                 $description,
                                 $data->start_date,
                                 $data->end_date,
+                                $election_type,
                                 $img
                             );
                             echo json_encode($response);

@@ -11,11 +11,11 @@ import Link from '@mui/material/Link'
 import FormControl from '@mui/material/FormControl'
 import FormLabel from '@mui/material/FormLabel'
 import InputAdornment from '@mui/material/InputAdornment'
-import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import AuthLayout from '../layouts/AuthLayout'
+import StatusModal from '../components/StatusModal'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -38,7 +38,17 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 export default function Login() {
-  const [errorMessage, setErrorMessage] = React.useState<string>('')
+  const [modalState, setModalState] = React.useState<{
+    open: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({
+    open: false,
+    type: 'success',
+    title: '',
+    message: '',
+  })
   const { isAuthenticated, isLoading } = useAuth()
   
   const { mutate: login, isPending } = useLogin()
@@ -67,13 +77,25 @@ export default function Login() {
   })
 
   const onSubmit = (data: LoginFormData) => {
-    setErrorMessage('')
     login(data, {
+      onSuccess: () => {
+        setModalState({
+          open: true,
+          type: 'success',
+          title: 'Login Successful!',
+          message: 'You have been logged in successfully. Redirecting to dashboard...',
+        })
+      },
       onError: (err: any) => {
         const message = err?.response?.data?.data?.message || 
                        err?.response?.data?.message || 
                        'Login failed. Please try again.'
-        setErrorMessage(message)
+        setModalState({
+          open: true,
+          type: 'error',
+          title: 'Login Failed',
+          message: message,
+        })
       },
     })
   }
@@ -93,12 +115,6 @@ export default function Login() {
               Sign in to access your voting dashboard
             </Typography>
           </Stack>
-
-          {errorMessage && (
-            <Alert severity="error" onClose={() => setErrorMessage('')}>
-              {errorMessage}
-            </Alert>
-          )}
 
           <FormControl fullWidth error={!!errors.email}>
             <FormLabel htmlFor="email">Email</FormLabel>
@@ -209,6 +225,16 @@ export default function Login() {
           </Typography>
         </Stack>
       </Box>
+
+      {/* Status Modal */}
+      <StatusModal
+        open={modalState.open}
+        onClose={() => setModalState({ ...modalState, open: false })}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+        autoHideDuration={modalState.type === 'success' ? 1500 : undefined}
+      />
     </AuthLayout>
   )
 }

@@ -42,6 +42,7 @@ import {
 } from '../hooks/VoterHooks'
 import CreateVoter from '../components/CreateVoter'
 import Sidenav from '../components/Sidenav'
+import StatusModal from '../components/StatusModal'
 
 const Voters = () => {
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -51,6 +52,17 @@ const Voters = () => {
   const [sortBy, setSortBy] = React.useState<string>('date_desc')
   const [viewMode, setViewMode] = React.useState<'card' | 'table'>('card')
   const [showArchived, setShowArchived] = React.useState(false)
+  const [modalState, setModalState] = React.useState<{
+    open: boolean
+    type: 'success' | 'error'
+    title: string
+    message: string
+  }>({
+    open: false,
+    type: 'success',
+    title: '',
+    message: '',
+  })
 
   const { data: voters = [], isLoading, error } = useGetVoters(showArchived)
   const archiveMutation = useArchiveVoter()
@@ -61,8 +73,18 @@ const Voters = () => {
     setDialogOpen(true)
   }
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = (wasSuccess?: boolean) => {
     setDialogOpen(false)
+    if (wasSuccess) {
+      setModalState({
+        open: true,
+        type: 'success',
+        title: selectedVoter ? 'Voter Updated!' : 'Voter Created!',
+        message: selectedVoter 
+          ? 'The voter has been successfully updated.' 
+          : 'The voter has been successfully created.',
+      })
+    }
     setSelectedVoter(null)
   }
 
@@ -88,8 +110,19 @@ const Voters = () => {
     if (menuVoterId) {
       try {
         await archiveMutation.mutateAsync(menuVoterId)
-      } catch (error) {
-        console.error('Failed to archive voter:', error)
+        setModalState({
+          open: true,
+          type: 'success',
+          title: 'Voter Archived!',
+          message: 'The voter has been successfully archived.',
+        })
+      } catch (error: any) {
+        setModalState({
+          open: true,
+          type: 'error',
+          title: 'Archive Failed',
+          message: error?.message || 'Failed to archive voter. Please try again.',
+        })
       }
     }
     handleMenuClose()
@@ -99,8 +132,19 @@ const Voters = () => {
     if (menuVoterId && window.confirm('Are you sure you want to delete this voter?')) {
       try {
         await deleteMutation.mutateAsync(menuVoterId)
-      } catch (error) {
-        console.error('Failed to delete voter:', error)
+        setModalState({
+          open: true,
+          type: 'success',
+          title: 'Voter Deleted!',
+          message: 'The voter has been successfully deleted.',
+        })
+      } catch (error: any) {
+        setModalState({
+          open: true,
+          type: 'error',
+          title: 'Delete Failed',
+          message: error?.message || 'Failed to delete voter. Please try again.',
+        })
       }
     }
     handleMenuClose()
@@ -469,6 +513,15 @@ const Voters = () => {
         open={dialogOpen}
         onClose={handleCloseDialog}
         voter={selectedVoter}
+      />
+
+      {/* Status Modal */}
+      <StatusModal
+        open={modalState.open}
+        onClose={() => setModalState({ ...modalState, open: false })}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
       />
       </Container>
     </Sidenav>

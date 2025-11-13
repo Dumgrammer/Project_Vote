@@ -11,6 +11,11 @@ import Typography from '@mui/material/Typography'
 import Avatar from '@mui/material/Avatar'
 import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import FormHelperText from '@mui/material/FormHelperText'
 import CloseIcon from '@mui/icons-material/Close'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -42,6 +47,7 @@ export default function CreateElection({ open, onClose, onSuccess }: CreateElect
     defaultValues: {
       election_title: '',
       description: '',
+      election_type: 'school',
       startDate: '',
       startTime: '',
       endDate: '',
@@ -92,6 +98,7 @@ export default function CreateElection({ open, onClose, onSuccess }: CreateElect
     const electionData = {
       election_title: data.election_title,
       description: data.description,
+      election_type: data.election_type,
       start_date: startDateTime,
       end_date: endDateTime,
       img: data.img,
@@ -249,6 +256,31 @@ export default function CreateElection({ open, onClose, onSuccess }: CreateElect
                   error={!!errors.description}
                   helperText={errors.description?.message}
                 />
+              )}
+            />
+
+            {/* Election Type */}
+            <Controller
+              name="election_type"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth error={!!errors.election_type}>
+                  <InputLabel id="election-type-label">Election Type</InputLabel>
+                  <Select
+                    {...field}
+                    labelId="election-type-label"
+                    label="Election Type"
+                    value={field.value}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  >
+                    <MenuItem value="school">School</MenuItem>
+                    <MenuItem value="corporate">Corporate</MenuItem>
+                    <MenuItem value="barangay">Barangay</MenuItem>
+                  </Select>
+                  {errors.election_type && (
+                    <FormHelperText>{errors.election_type.message}</FormHelperText>
+                  )}
+                </FormControl>
               )}
             />
 

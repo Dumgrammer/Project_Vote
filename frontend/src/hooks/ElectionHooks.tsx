@@ -7,6 +7,7 @@ export interface Election {
   img_url?: string
   election_title: string
   description: string
+  election_type: 'school' | 'corporate' | 'barangay'
   start_date: string
   end_date: string
   created_by: number
@@ -21,6 +22,7 @@ export interface Election {
 export interface CreateElectionData {
   election_title: string
   description: string
+  election_type: 'school' | 'corporate' | 'barangay'
   start_date: string
   end_date: string
   img?: File | null
@@ -73,6 +75,7 @@ export const useCreateElection = () => {
       const formData = new FormData()
       formData.append('election_title', data.election_title)
       formData.append('description', data.description)
+      formData.append('election_type', data.election_type)
       formData.append('start_date', data.start_date)
       formData.append('end_date', data.end_date)
       

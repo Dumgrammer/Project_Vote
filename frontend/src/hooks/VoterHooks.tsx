@@ -13,6 +13,8 @@ export interface Voter {
   full_name: string
   email: string
   contact_number: string | null
+  sex: 'male' | 'female' | 'other' | null
+  voter_type: 'school' | 'corporate' | 'barangay'
   is_verified: boolean
   is_archived: boolean
   date_registered: string
@@ -30,6 +32,8 @@ export interface CreateVoterData {
   email: string
   contact_number?: string
   password: string
+  sex: 'male' | 'female' | 'other'
+  voter_type: 'school' | 'corporate' | 'barangay'
   v_image?: File
   is_verified?: boolean
   is_archived?: boolean
@@ -43,6 +47,8 @@ export interface UpdateVoterData {
   email?: string
   contact_number?: string
   password?: string
+  sex?: 'male' | 'female' | 'other'
+  voter_type?: 'school' | 'corporate' | 'barangay'
   v_image?: File
   is_verified?: boolean
   is_archived?: boolean
@@ -64,9 +70,9 @@ export const useGetVoters = (includeArchived: boolean = false) => {
     queryFn: async () => {
       const voters = await voterService.getAllVoters(includeArchived)
       // Convert relative image paths to full URLs using the same utility as elections
-      return voters.map(voter => ({
+      return voters.map((voter) => ({
         ...voter,
-        v_image_url: getImageUrl(voter.v_image_url)
+        v_image_url: getImageUrl(voter.v_image_url),
       }))
     },
   })
@@ -81,7 +87,7 @@ export const useGetVoter = (id: number) => {
       // Convert relative image path to full URL using the same utility as elections
       return {
         ...voter,
-        v_image_url: getImageUrl(voter.v_image_url)
+        v_image_url: getImageUrl(voter.v_image_url),
       }
     },
     enabled: !!id,
@@ -111,6 +117,14 @@ export const useCreateVoter = () => {
         formData.append('is_verified', data.is_verified.toString())
       }
       
+      if (data.sex) {
+        formData.append('sex', data.sex)
+      }
+
+      if (data.voter_type) {
+        formData.append('voter_type', data.voter_type)
+      }
+
       if (data.is_archived !== undefined) {
         formData.append('is_archived', data.is_archived.toString())
       }
@@ -143,6 +157,14 @@ export const useUpdateVoter = () => {
       
       if (data.v_image) {
         formData.append('v_image', data.v_image)
+      }
+      
+      if (data.sex) {
+        formData.append('sex', data.sex)
+      }
+
+      if (data.voter_type) {
+        formData.append('voter_type', data.voter_type)
       }
       
       if (data.is_verified !== undefined) {

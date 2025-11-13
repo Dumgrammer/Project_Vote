@@ -30,6 +30,7 @@ interface CreateCandidatesProps {
   electionId: number
   initialData?: Candidate
   editMode?: boolean
+  canModify?: boolean
 }
 
 const positions = [
@@ -50,6 +51,7 @@ export default function CreateCandidates({
   electionId,
   initialData,
   editMode = false,
+  canModify = true,
 }: CreateCandidatesProps) {
   const [imagePreview, setImagePreview] = React.useState<string | null>(null)
   const [partyDialogOpen, setPartyDialogOpen] = React.useState(false)
@@ -61,6 +63,8 @@ export default function CreateCandidates({
 
   const isPending = isCreating || isUpdating
   const error = createError || updateError
+  const isLocked = !canModify
+  const isInteractionDisabled = isLocked || isPending
 
   const {
     control,
@@ -98,6 +102,7 @@ export default function CreateCandidates({
   }, [initialData, reset])
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (isLocked) return
     const file = event.target.files?.[0]
     if (file) {
       // Validate file type
@@ -124,6 +129,7 @@ export default function CreateCandidates({
   }
 
   const handleRemoveImage = () => {
+    if (isLocked) return
     setImagePreview(null)
     setValue('photo', null)
     if (fileInputRef.current) {
@@ -132,6 +138,9 @@ export default function CreateCandidates({
   }
 
   const onSubmit = (data: CandidateFormData) => {
+    if (isLocked) {
+      return
+    }
     if (editMode && initialData) {
       // Update existing candidate
       updateCandidate(
@@ -215,6 +224,11 @@ export default function CreateCandidates({
                 {error.message}
               </Alert>
             )}
+            {isLocked && (
+              <Alert severity="info">
+                Candidate updates are locked for this election. You can only modify candidates more than 24 hours before the election begins.
+              </Alert>
+            )}
 
             {/* Photo Upload */}
           <Box>
@@ -236,6 +250,7 @@ export default function CreateCandidates({
                   <Avatar src={imagePreview} sx={{ width: 120, height: 120, mx: 'auto' }} />
                   <IconButton
                     size="small"
+                    disabled={isInteractionDisabled}
                     onClick={handleRemoveImage}
                     sx={{
                       position: 'absolute',
@@ -258,6 +273,7 @@ export default function CreateCandidates({
                     onChange={handleImageUpload}
                     style={{ display: 'none' }}
                     id="candidate-photo-upload"
+                    disabled={isInteractionDisabled}
                   />
                   <label htmlFor="candidate-photo-upload">
                     <Button
@@ -265,6 +281,7 @@ export default function CreateCandidates({
                       component="span"
                       startIcon={<CloudUploadIcon />}
                       sx={{ textTransform: 'none' }}
+                      disabled={isInteractionDisabled}
                     >
                       Upload Photo
                     </Button>
@@ -290,6 +307,7 @@ export default function CreateCandidates({
                 placeholder="e.g., John"
                 error={!!errors.fname}
                 helperText={errors.fname?.message}
+                disabled={isInteractionDisabled}
               />
             )}
           />
@@ -306,6 +324,7 @@ export default function CreateCandidates({
                 placeholder="e.g., Michael"
                 error={!!errors.mname}
                 helperText={errors.mname?.message}
+                disabled={isInteractionDisabled}
               />
             )}
           />
@@ -323,6 +342,7 @@ export default function CreateCandidates({
                 placeholder="e.g., Smith"
                 error={!!errors.lname}
                 helperText={errors.lname?.message}
+                disabled={isInteractionDisabled}
               />
             )}
           />
@@ -340,6 +360,7 @@ export default function CreateCandidates({
                 required
                 error={!!errors.position}
                 helperText={errors.position?.message}
+                disabled={isInteractionDisabled}
               >
                 {positions.map((position) => (
                   <MenuItem key={position} value={position}>
@@ -364,7 +385,7 @@ export default function CreateCandidates({
                   required
                   error={!!errors.party_id}
                   helperText={errors.party_id?.message}
-                  disabled={partiesLoading}
+                  disabled={partiesLoading || isInteractionDisabled}
                   value={field.value || ''}
                   onChange={(e) => field.onChange(Number(e.target.value))}
                 >
@@ -379,8 +400,9 @@ export default function CreateCandidates({
             <Button
               size="small"
               startIcon={<AddIcon />}
-              onClick={() => setPartyDialogOpen(true)}
+              onClick={() => !isInteractionDisabled && setPartyDialogOpen(true)}
               sx={{ mt: 1, textTransform: 'none' }}
+              disabled={isInteractionDisabled}
             >
               Add New Party
             </Button>
@@ -401,6 +423,7 @@ export default function CreateCandidates({
                 placeholder="Brief description of the candidate..."
                 error={!!errors.bio}
                 helperText={errors.bio?.message}
+                disabled={isInteractionDisabled}
               />
             )}
           />
@@ -415,10 +438,18 @@ export default function CreateCandidates({
             type="submit"
             variant="contained"
             sx={{ textTransform: 'none' }}
-            disabled={isPending}
+            disabled={isInteractionDisabled}
             startIcon={isPending ? <CircularProgress size={20} /> : null}
           >
-            {isPending ? (editMode ? 'Updating...' : 'Creating...') : (editMode ? 'Update Candidate' : 'Add Candidate')}
+            {isLocked
+              ? 'Editing Locked'
+              : isPending
+              ? editMode
+                ? 'Updating...'
+                : 'Creating...'
+              : editMode
+              ? 'Update Candidate'
+              : 'Add Candidate'}
           </Button>
         </DialogActions>
       </form>

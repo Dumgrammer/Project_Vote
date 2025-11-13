@@ -32,6 +32,20 @@ class VoterController extends GlobalUtil {
                 return $this->sendErrorResponse("Password is required", 400);
             }
 
+            // Validate sex
+            $allowedSex = ['male', 'female', 'other'];
+            $sex = isset($data['sex']) ? strtolower(trim($data['sex'])) : null;
+            if (!$sex || !in_array($sex, $allowedSex, true)) {
+                return $this->sendErrorResponse("Sex must be one of: male, female, other", 400);
+            }
+
+            // Validate voter type
+            $allowedTypes = ['school', 'corporate', 'barangay'];
+            $voterType = isset($data['voter_type']) ? strtolower(trim($data['voter_type'])) : null;
+            if (!$voterType || !in_array($voterType, $allowedTypes, true)) {
+                return $this->sendErrorResponse("Type must be one of: school, corporate, barangay", 400);
+            }
+
             // Check if email already exists
             $checkEmail = $this->pdo->prepare("SELECT id FROM voters WHERE email = ?");
             $checkEmail->execute([$data['email']]);
@@ -58,8 +72,8 @@ class VoterController extends GlobalUtil {
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
             // Insert voter
-            $sql = "INSERT INTO voters (voters_id, v_image, fname, mname, lname, email, contact_number, password, is_verified, is_archived, created_by) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO voters (voters_id, v_image, fname, mname, lname, email, contact_number, sex, voter_type, password, is_verified, is_archived, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
@@ -70,6 +84,8 @@ class VoterController extends GlobalUtil {
                 $data['lname'],
                 $data['email'],
                 $data['contact_number'] ?? null,
+                $sex,
+                $voterType,
                 $hashedPassword,
                 isset($data['is_verified']) ? filter_var($data['is_verified'], FILTER_VALIDATE_BOOLEAN) : false,
                 isset($data['is_archived']) ? filter_var($data['is_archived'], FILTER_VALIDATE_BOOLEAN) : false,
@@ -181,6 +197,9 @@ class VoterController extends GlobalUtil {
                 return $this->sendErrorResponse("Voter not found", 404);
             }
 
+            $allowedSex = ['male', 'female', 'other'];
+            $allowedTypes = ['school', 'corporate', 'barangay'];
+
             // Add image URL and convert booleans
             $voter['v_image_url'] = $voter['v_image'] ? $this->fileUpload->getFileUrl($voter['v_image']) : null;
             $voter['is_verified'] = (bool)$voter['is_verified'];
@@ -267,6 +286,22 @@ class VoterController extends GlobalUtil {
             if (isset($data['contact_number'])) {
                 $fields[] = "contact_number = ?";
                 $values[] = $data['contact_number'];
+            }
+            if (isset($data['sex'])) {
+                $sex = strtolower(trim($data['sex']));
+                if (!in_array($sex, $allowedSex, true)) {
+                    return $this->sendErrorResponse("Sex must be one of: male, female, other", 400);
+                }
+                $fields[] = "sex = ?";
+                $values[] = $sex;
+            }
+            if (isset($data['voter_type'])) {
+                $voterType = strtolower(trim($data['voter_type']));
+                if (!in_array($voterType, $allowedTypes, true)) {
+                    return $this->sendErrorResponse("Type must be one of: school, corporate, barangay", 400);
+                }
+                $fields[] = "voter_type = ?";
+                $values[] = $voterType;
             }
             // Only update password if provided and not empty (leave blank to keep current)
             if (isset($data['password']) && !empty(trim($data['password']))) {
@@ -409,7 +444,7 @@ class VoterController extends GlobalUtil {
             error_log("Voter ID: " . $voterId);
 
             // Verify voter exists and is verified
-            $voterStmt = $this->pdo->prepare("SELECT is_verified, is_archived FROM voters WHERE id = ?");
+            $voterStmt = $this->pdo->prepare("SELECT is_verified, is_archived, voter_type FROM voters WHERE id = ?");
             $voterStmt->execute([$voterId]);
             $voter = $voterStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -429,13 +464,19 @@ class VoterController extends GlobalUtil {
             }
 
             // Check if election exists and is ongoing
-            $electionStmt = $this->pdo->prepare("SELECT start_date, end_date FROM elections WHERE id = ? AND is_archived = FALSE");
+            $electionStmt = $this->pdo->prepare("SELECT start_date, end_date, election_type FROM elections WHERE id = ? AND is_archived = FALSE");
             $electionStmt->execute([$electionId]);
             $election = $electionStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$election) {
                 error_log("Election not found: " . $electionId);
                 return $this->sendErrorResponse("Election not found", 404);
+            }
+
+            $voterType = strtolower($voter['voter_type'] ?? '');
+            $electionType = strtolower($election['election_type'] ?? '');
+            if ($voterType && $electionType && $voterType !== $electionType) {
+                return $this->sendErrorResponse("This election is not available for your voter type.", 403);
             }
 
             $now = new DateTime();
@@ -545,6 +586,20 @@ class VoterController extends GlobalUtil {
             }
 
             $voterId = $_SESSION['voter_id'];
+
+            // Ensure election exists and matches voter type
+            $voterType = strtolower($_SESSION['voter_type'] ?? '');
+            $electionStmt = $this->pdo->prepare("SELECT election_type FROM elections WHERE id = ? AND is_archived = FALSE");
+            $electionStmt->execute([$electionId]);
+            $election = $electionStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$election) {
+                return $this->sendErrorResponse("Election not found", 404);
+            }
+
+            if ($voterType && strtolower($election['election_type']) !== $voterType) {
+                return $this->sendErrorResponse("This election is not available for your voter type.", 403);
+            }
 
             // Get the vote record for this voter and election
             $sql = "SELECT 

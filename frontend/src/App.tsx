@@ -11,6 +11,8 @@ import Login from './pages/Login'
 import Elections from './pages/Elections'
 import Candidates from './pages/Candidates'
 import Voters from './pages/Voters'
+import Results from './pages/Results'
+import About from './pages/About'
 import Hero from './pages/Hero'
 import VoterLogin from './pages/VoterLogin'
 import VoterRegister from './pages/VoterRegister'
@@ -19,6 +21,7 @@ import ElectionCandidates from './pages/ElectionCandidates'
 import VoterHome from './pages/VoterHome'
 import VoterProfile from './pages/VoterProfile'
 import VoterElectionCandidates from './pages/VoterElectionCandidates'
+import VoterElectionResults from './pages/VoterElectionResults'
 
 function App() {
   return (
@@ -74,6 +77,22 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/results"
+                element={
+                  <ProtectedRoute>
+                    <Results />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/about"
+                element={
+                  <ProtectedRoute>
+                    <About />
+                  </ProtectedRoute>
+                }
+              />
               
               {/* Voter Routes */}
               <Route path="/voter/login" element={<VoterLogin />} />
@@ -91,6 +110,14 @@ function App() {
                 element={
                   <VoterProtectedRoute>
                     <VoterElectionCandidates />
+                  </VoterProtectedRoute>
+                }
+              />
+              <Route
+                path="/voter/election/:electionId/results"
+                element={
+                  <VoterProtectedRoute>
+                    <VoterElectionResults />
                   </VoterProtectedRoute>
                 }
               />

@@ -12,6 +12,8 @@ export interface VoterUser {
   mname: string
   lname: string
   fullname: string
+  sex?: 'male' | 'female' | 'other' | null
+  voter_type?: 'school' | 'corporate' | 'barangay' | null
 }
 
 export interface VoterSessionResponse {
@@ -30,6 +32,8 @@ export interface VoterProfile {
   full_name: string
   email: string
   contact_number: string | null
+  sex: 'male' | 'female' | 'other' | null
+  voter_type: 'school' | 'corporate' | 'barangay'
   is_verified: boolean
   date_registered: string
   date_verified: string | null
@@ -39,6 +43,7 @@ export interface Election {
   id: number
   election_title: string
   description: string
+  election_type: 'school' | 'corporate' | 'barangay'
   start_date: string
   end_date: string
   img: string | null

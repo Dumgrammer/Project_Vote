@@ -4,6 +4,8 @@ import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
+import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
@@ -12,65 +14,100 @@ import PeopleIcon from '@mui/icons-material/People'
 import HowToVoteIcon from '@mui/icons-material/HowToVote'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-
-// Static data for statistics
-const stats = [
-  {
-    title: 'Total Voters',
-    value: '12,458',
-    icon: <PeopleIcon sx={{ fontSize: 18 }} />,
-    change: '+12.5%',
-    trend: 'up',
-  },
-  {
-    title: 'Total Elections',
-    value: '48',
-    icon: <HowToVoteIcon sx={{ fontSize: 18 }} />,
-    change: '+8.2%',
-    trend: 'up',
-  },
-  {
-    title: 'Total Votes',
-    value: '35,742',
-    icon: <BarChartIcon sx={{ fontSize: 18 }} />,
-    change: '+23.1%',
-    trend: 'up',
-  },
-  {
-    title: 'Active Elections',
-    value: '12',
-    icon: <CheckCircleIcon sx={{ fontSize: 18 }} />,
-    change: '-5.2%',
-    trend: 'down',
-  },
-]
-
-// Election participation data
-const participationData = [
-  { month: 'Jan', value: 45 },
-  { month: 'Feb', value: 68 },
-  { month: 'Mar', value: 52 },
-  { month: 'Apr', value: 85 },
-  { month: 'May', value: 58 },
-  { month: 'Jun', value: 92 },
-  { month: 'Jul', value: 78 },
-  { month: 'Aug', value: 65 },
-  { month: 'Sep', value: 88 },
-  { month: 'Oct', value: 95 },
-  { month: 'Nov', value: 72 },
-  { month: 'Dec', value: 80 },
-]
-
-// Recent elections data
-const recentElections = [
-  { name: 'Student Council 2024', votes: 1839, change: '+10%', trend: 'up', color: '#2196f3' },
-  { name: 'Department Head', votes: 1839, change: '+10%', trend: 'up', color: '#4caf50' },
-  { name: 'Class Representative', votes: 1520, change: '-5%', trend: 'down', color: '#f44336' },
-  { name: 'Sports Committee', votes: 892, change: '+15%', trend: 'up', color: '#64b5f6' },
-]
+import { useDashboardStats } from '../hooks/dashboardHooks'
 
 export default function Dashboard() {
-  const maxValue = Math.max(...participationData.map(d => d.value))
+  // Fetch dashboard stats from the API
+  const { data: dashboardData, isLoading, error } = useDashboardStats()
+
+  if (isLoading) {
+    return (
+      <Sidenav>
+        <Container maxWidth="xl">
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+            <CircularProgress />
+          </Box>
+        </Container>
+      </Sidenav>
+    )
+  }
+
+  if (error) {
+    return (
+      <Sidenav>
+        <Container maxWidth="xl">
+          <Alert severity="error">
+            Failed to load dashboard data. {error instanceof Error ? error.message : 'Please try again later.'}
+          </Alert>
+        </Container>
+      </Sidenav>
+    )
+  }
+
+  if (!dashboardData) {
+    return (
+      <Sidenav>
+        <Container maxWidth="xl">
+          <Alert severity="info">No dashboard data available</Alert>
+        </Container>
+      </Sidenav>
+    )
+  }
+
+  const stats = [
+    {
+      title: 'Total Voters',
+      value: dashboardData?.stats?.totalVoters?.toLocaleString() || '0',
+      icon: <PeopleIcon sx={{ fontSize: 18 }} />,
+      change: '+0%',
+      trend: 'up' as const,
+    },
+    {
+      title: 'Total Elections',
+      value: dashboardData?.stats?.totalElections?.toLocaleString() || '0',
+      icon: <HowToVoteIcon sx={{ fontSize: 18 }} />,
+      change: '+0%',
+      trend: 'up' as const,
+    },
+    {
+      title: 'Total Votes',
+      value: dashboardData?.stats?.totalVotes?.toLocaleString() || '0',
+      icon: <BarChartIcon sx={{ fontSize: 18 }} />,
+      change: '+0%',
+      trend: 'up' as const,
+    },
+    {
+      title: 'Active Elections',
+      value: dashboardData?.stats?.activeElections?.toLocaleString() || '0',
+      icon: <CheckCircleIcon sx={{ fontSize: 18 }} />,
+      change: '+0%',
+      trend: (dashboardData?.stats?.activeElections || 0) > 0 ? ('up' as const) : ('down' as const),
+    },
+  ]
+
+  // Format participation data for chart (last 30 days)
+  const participationData = dashboardData?.participation || []
+  const maxValue = participationData.length > 0 
+    ? Math.max(...participationData.map((d: { voters_count: number }) => parseInt(String(d.voters_count))))
+    : 100
+  
+  // Calculate total participation
+  const totalParticipation = participationData.reduce((sum: number, d: { voters_count: number }) => 
+    sum + parseInt(String(d.voters_count)), 0)
+
+  // Format recent elections
+  const recentElections = dashboardData?.recentElections?.slice(0, 4).map((election: {
+    election_title: string;
+    total_voters: number;
+    status: string;
+  }, idx: number) => ({
+    name: election.election_title,
+    votes: parseInt(String(election.total_voters)),
+    change: '+0%',
+    trend: 'up',
+    color: idx === 0 ? '#2196f3' : idx === 1 ? '#4caf50' : idx === 2 ? '#f44336' : '#64b5f6',
+    status: election.status,
+  })) || []
 
   return (
     <Sidenav>
@@ -140,8 +177,96 @@ export default function Dashboard() {
           ))}
         </Box>
 
+        {/* Recent Ended Election Results */}
+        {dashboardData?.recentEndedElection && dashboardData?.electionResults?.length > 0 && (
+          <Paper
+            elevation={2}
+            sx={{
+              p: 3,
+              mb: 3,
+              bgcolor: 'white',
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Latest Election Results
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {dashboardData.recentEndedElection.election_title}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Ended: {new Date(dashboardData.recentEndedElection.end_date).toLocaleDateString()}
+                </Typography>
+              </Box>
+              <Chip 
+                label="COMPLETED" 
+                size="small"
+                sx={{ bgcolor: '#757575', color: 'white' }}
+              />
+            </Box>
+
+            {/* Horizontal Bar Chart */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {dashboardData.electionResults.map((result: {
+                candidate_name: string;
+                position: string;
+                party_code: string;
+                vote_count: number;
+              }, idx: number) => {
+                const maxVotes = Math.max(...dashboardData.electionResults.map((r: { vote_count: number }) => r.vote_count))
+                const percentage = maxVotes > 0 ? (result.vote_count / maxVotes) * 100 : 0
+                
+                return (
+                  <Box key={idx}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, minWidth: '30px' }}>
+                          #{idx + 1}
+                        </Typography>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {result.candidate_name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {result.position} • {result.party_code}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#2196f3' }}>
+                        {result.vote_count}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: 8,
+                        bgcolor: '#f5f5f5',
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: `${percentage}%`,
+                          height: '100%',
+                          bgcolor: idx === 0 ? '#4caf50' : idx === 1 ? '#2196f3' : idx === 2 ? '#ff9800' : '#64b5f6',
+                          transition: 'width 0.5s ease',
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                )
+              })}
+            </Box>
+          </Paper>
+        )}
+
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3 }}>
-          {/* Voter Participation Chart */}
+          {/* Voting Activity Over Time - Line Graph */}
           <Paper
             elevation={2}
             sx={{
@@ -154,70 +279,184 @@ export default function Dashboard() {
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Voter Participation
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Voting Activity Over Time
                 </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  2,324
+                <Typography variant="body2" color="text.secondary">
+                  {totalParticipation.toLocaleString()} total votes • Hourly breakdown
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <Chip label="Today" size="small" sx={{ bgcolor: '#2196f3', color: 'white' }} />
-                <IconButton size="small" sx={{ color: 'text.secondary' }}>
-                  <MoreVertIcon />
-                </IconButton>
+                <Chip label="Last 48 Hours" size="small" sx={{ bgcolor: '#2196f3', color: 'white' }} />
               </Box>
             </Box>
 
-            {/* Custom Bar Chart */}
-            <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, height: 200, px: 1 }}>
-              {participationData.map((data, idx) => (
-                <Box
-                  key={idx}
-                  sx={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 1,
-                  }}
-                >
+            {/* Line Graph */}
+            <Box sx={{ position: 'relative', height: 220, px: 2 }}>
+              {participationData.length > 0 ? (
+                <>
+                  {/* Y-axis labels */}
                   <Box
                     sx={{
-                      width: '100%',
-                      height: `${(data.value / maxValue) * 100}%`,
-                      bgcolor: idx === 5 ? '#2196f3' : idx % 3 === 0 ? '#1976d2' : idx % 2 === 0 ? '#64b5f6' : 'rgba(255,255,255,0.1)',
-                      borderRadius: 1,
-                      transition: 'all 0.3s',
-                      '&:hover': {
-                        bgcolor: '#42a5f5',
-                      },
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      pr: 1,
                     }}
-                  />
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                    {data.month}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+                  >
+                    {[maxValue, Math.floor(maxValue * 0.75), Math.floor(maxValue * 0.5), Math.floor(maxValue * 0.25), 0].map((val, idx) => (
+                      <Typography key={idx} variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        {val}
+                      </Typography>
+                    ))}
+                  </Box>
 
-            {/* Legend */}
-            <Box sx={{ display: 'flex', gap: 3, mt: 3, justifyContent: 'center' }}>
-              {['Investment', 'Loss', 'Profit', 'Maintenance'].map((label, idx) => (
-                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box
-                    sx={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: 1,
-                      bgcolor: idx === 0 ? '#1976d2' : idx === 1 ? '#64b5f6' : idx === 2 ? '#2196f3' : '#e0e0e0',
-                    }}
-                  />
-                  <Typography variant="caption" color="text.secondary">
-                    {label}
+                  {/* Graph area */}
+                  <Box sx={{ position: 'relative', height: '100%', ml: 4 }}>
+                    {/* Grid lines */}
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 20,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <Box key={i} sx={{ width: '100%', height: '1px', bgcolor: '#f0f0f0' }} />
+                      ))}
+                    </Box>
+
+                    {/* SVG Line Chart */}
+                    <svg
+                      width="100%"
+                      height="100%"
+                      style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible' }}
+                      preserveAspectRatio="none"
+                      viewBox={`0 0 ${participationData.length * 100} 200`}
+                    >
+                      {/* Area fill */}
+                      <defs>
+                        <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#2196f3" stopOpacity="0.3" />
+                          <stop offset="100%" stopColor="#2196f3" stopOpacity="0.05" />
+                        </linearGradient>
+                      </defs>
+                      
+                      <path
+                        d={`
+                          M 0 200
+                          ${participationData.map((data: { voters_count: number }, idx: number) => {
+                            const x = participationData.length > 1 
+                              ? (idx / (participationData.length - 1)) * (participationData.length * 100)
+                              : (participationData.length * 100) / 2
+                            const y = 200 - ((parseInt(String(data.voters_count)) / maxValue) * 180)
+                            return `L ${x} ${y}`
+                          }).join(' ')}
+                          L ${participationData.length * 100} 200
+                          Z
+                        `}
+                        fill="url(#areaGradient)"
+                      />
+
+                      {/* Line */}
+                      <path
+                        d={participationData.map((data: { voters_count: number }, idx: number) => {
+                          const x = participationData.length > 1 
+                            ? (idx / (participationData.length - 1)) * (participationData.length * 100)
+                            : (participationData.length * 100) / 2
+                          const y = 200 - ((parseInt(String(data.voters_count)) / maxValue) * 180)
+                          return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`
+                        }).join(' ')}
+                        fill="none"
+                        stroke="#2196f3"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+
+                      {/* Data points */}
+                      {participationData.map((data: { voters_count: number; date_label: string }, idx: number) => {
+                        const x = participationData.length > 1 
+                          ? (idx / (participationData.length - 1)) * (participationData.length * 100)
+                          : (participationData.length * 100) / 2
+                        const y = 200 - ((parseInt(String(data.voters_count)) / maxValue) * 180)
+                        return (
+                          <g key={idx}>
+                            <circle
+                              cx={x}
+                              cy={y}
+                              r="4"
+                              fill="#fff"
+                              stroke="#2196f3"
+                              strokeWidth="2"
+                            />
+                            <circle
+                              cx={x}
+                              cy={y}
+                              r="8"
+                              fill="#2196f3"
+                              fillOpacity="0"
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <title>{`${data.date_label}: ${data.voters_count} votes`}</title>
+                            </circle>
+                          </g>
+                        )
+                      })}
+                    </svg>
+
+                    {/* X-axis labels */}
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        px: 1,
+                      }}
+                    >
+                      {participationData.length > 0 && participationData.length > 1 ? (
+                        [
+                          participationData[0],
+                          participationData[Math.floor(participationData.length / 4)],
+                          participationData[Math.floor(participationData.length / 2)],
+                          participationData[Math.floor(participationData.length * 3 / 4)],
+                          participationData[participationData.length - 1],
+                        ].map((data: { date_label: string } | undefined, idx) => (
+                          data && (
+                            <Typography key={idx} variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              {data.date_label}
+                            </Typography>
+                          )
+                        ))
+                      ) : (
+                        participationData.length === 1 && (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            {participationData[0].date_label}
+                          </Typography>
+                        )
+                      )}
+                    </Box>
+                  </Box>
+                </>
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No voting data available yet
                   </Typography>
                 </Box>
-              ))}
+              )}
             </Box>
           </Paper>
 
@@ -242,90 +481,124 @@ export default function Dashboard() {
             </Box>
 
             {/* Featured Election Card */}
-            <Paper
-              elevation={1}
-              sx={{
-                p: 2.5,
-                mb: 2,
-                bgcolor: '#e3f2fd',
-                borderRadius: 2,
-                position: 'relative',
-                overflow: 'hidden',
-                border: '1px solid',
-                borderColor: '#2196f3',
-              }}
-            >
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'text.primary' }}>
-                {recentElections[0].name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {recentElections[0].change} Profit
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#2196f3' }}>
-                {recentElections[0].votes}
-              </Typography>
-              {/* Simple line wave */}
-              <Box
+            {recentElections.length > 0 ? (
+              <Paper
+                elevation={1}
                 sx={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: 60,
-                  opacity: 0.2,
+                  p: 2.5,
+                  mb: 2,
+                  bgcolor: '#e3f2fd',
+                  borderRadius: 2,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  border: '1px solid',
+                  borderColor: '#2196f3',
                 }}
               >
-                <svg width="100%" height="100%" preserveAspectRatio="none">
-                  <path
-                    d="M0,30 Q25,10 50,30 T100,30 T150,30 T200,30 T250,30 T300,30 T350,30"
-                    fill="none"
-                    stroke="#2196f3"
-                    strokeWidth="2"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
-              </Box>
-            </Paper>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'text.primary' }}>
+                  {recentElections[0].name}
+                </Typography>
+                <Chip 
+                  label={recentElections[0].status.toUpperCase()} 
+                  size="small"
+                  sx={{ 
+                    mb: 2,
+                    bgcolor: recentElections[0].status === 'ongoing' ? '#4caf50' : 
+                             recentElections[0].status === 'upcoming' ? '#2196f3' : '#757575',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                    height: 20
+                  }}
+                />
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#2196f3' }}>
+                  {recentElections[0].votes} voters
+                </Typography>
+                {/* Simple line wave */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 60,
+                    opacity: 0.2,
+                  }}
+                >
+                  <svg width="100%" height="100%" preserveAspectRatio="none">
+                    <path
+                      d="M0,30 Q25,10 50,30 T100,30 T150,30 T200,30 T250,30 T300,30 T350,30"
+                      fill="none"
+                      stroke="#2196f3"
+                      strokeWidth="2"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
+                </Box>
+              </Paper>
+            ) : null}
 
             {/* Election List */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {recentElections.slice(1).map((election, idx) => (
-                <Box
-                  key={idx}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    p: 2,
-                    bgcolor: '#f5f5f5',
-                    borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        bgcolor: election.color,
-                      }}
-                    />
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {election.name}
-                      </Typography>
-                      <Typography variant="caption" color={election.trend === 'up' ? '#4caf50' : '#f44336'}>
-                        {election.change} {election.trend === 'up' ? 'Profit' : 'loss'}
-                      </Typography>
+              {recentElections.length > 1 ? (
+                recentElections.slice(1).map((election: {
+                  name: string;
+                  votes: number;
+                  status: string;
+                  color: string;
+                }, idx: number) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      p: 2,
+                      bgcolor: '#f5f5f5',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          bgcolor: election.color,
+                        }}
+                      />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {election.name}
+                        </Typography>
+                        <Chip 
+                          label={election.status.toUpperCase()} 
+                          size="small"
+                          sx={{ 
+                            mt: 0.5,
+                            bgcolor: election.status === 'ongoing' ? 'rgba(76, 175, 80, 0.1)' : 
+                                     election.status === 'upcoming' ? 'rgba(33, 150, 243, 0.1)' : 'rgba(117, 117, 117, 0.1)',
+                            color: election.status === 'ongoing' ? '#4caf50' : 
+                                   election.status === 'upcoming' ? '#2196f3' : '#757575',
+                            fontSize: '0.65rem',
+                            height: 18
+                          }}
+                        />
+                      </Box>
                     </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {election.votes}
+                    </Typography>
                   </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {election.votes}
+                ))
+              ) : recentElections.length === 0 ? (
+                <Box sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No recent elections available
                   </Typography>
                 </Box>
-              ))}
+              ) : null}
             </Box>
 
             {/* View All Link */}
