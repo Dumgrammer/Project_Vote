@@ -357,6 +357,8 @@ export default function Elections() {
                     borderRadius: 2,
                     overflow: 'hidden',
                     position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
                     transition: 'transform 0.2s, box-shadow 0.2s',
                     '&:hover': {
                       transform: 'translateY(-4px)',
@@ -411,9 +413,17 @@ export default function Elections() {
                       <HowToVoteIcon sx={{ fontSize: 80, color: 'grey.400' }} />
                     )}
                   </Box>
-
+                    
                   {/* Card Content */}
-                  <CardContent sx={{ p: 2 }}>
+                  <CardContent 
+                    sx={{ 
+                      p: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: '100%',
+                      minHeight: 280,
+                    }}
+                  >
                     {/* Status Badge */}
                     <Chip
                       label={statusInfo.label}
@@ -425,6 +435,7 @@ export default function Elections() {
                         fontSize: '0.75rem',
                         height: 24,
                         fontWeight: 600,
+                        alignSelf: 'flex-start',
                       }}
                     />
 
@@ -438,6 +449,7 @@ export default function Elections() {
                         color: typeConfig.color,
                         fontWeight: 600,
                         height: 22,
+                        alignSelf: 'flex-start',
                       }}
                     />
 
@@ -477,7 +489,7 @@ export default function Elections() {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontSize: '0.85rem' }}>
                       Start: {formatDateTime(election.start_date)}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.85rem' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontSize: '0.85rem' }}>
                       End: {formatDateTime(election.end_date)}
                     </Typography>
 
@@ -487,9 +499,12 @@ export default function Elections() {
                         label="Archived"
                         size="small"
                         color="warning"
-                        sx={{ mb: 2, height: 20, fontSize: '0.7rem' }}
+                        sx={{ mb: 1.5, height: 20, fontSize: '0.7rem', alignSelf: 'flex-start' }}
                       />
                     ) : null}
+
+                    {/* Spacer to push button to bottom */}
+                    <Box sx={{ flexGrow: 1 }} />
 
                     {/* View Details Button */}
                     <Button
@@ -502,6 +517,7 @@ export default function Elections() {
                         '&:hover': {
                           bgcolor: isEnded ? 'primary.dark' : 'grey.900',
                         },
+                        mt: 'auto',
                       }}
                       onClick={() => handleViewDetails(election)}
                     >

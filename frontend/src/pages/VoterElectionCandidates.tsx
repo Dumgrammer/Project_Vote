@@ -15,6 +15,7 @@ import {
   RadioGroup,
   FormControlLabel,
   FormControl,
+  Checkbox,
   Link,
   Table,
   TableBody,
@@ -60,6 +61,9 @@ interface Candidate {
   photo_url: string | null
   full_name: string
   position: string
+  position_id?: number
+  position_name?: string
+  allows_multiple_votes?: boolean
   party_name: string
   party_code: string
   bio?: string
@@ -68,7 +72,8 @@ interface Candidate {
 const VoterElectionCandidates = () => {
   const { electionId } = useParams<{ electionId: string }>()
   const navigate = useNavigate()
-  const [selectedVotes, setSelectedVotes] = useState<Record<string, number>>({})
+  // Support both single votes (number) and multiple votes (number[])
+  const [selectedVotes, setSelectedVotes] = useState<Record<string, number | number[]>>({})
   const [expandedBios, setExpandedBios] = useState<Set<number>>(new Set())
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
   const [modalState, setModalState] = useState<{
@@ -131,6 +136,25 @@ const VoterElectionCandidates = () => {
 
   const candidates = candidatesData?.candidates || []
 
+  // Position priority order (popular positions first)
+  const positionPriority: Record<string, number> = {
+    'President': 1,
+    'Vice President': 2,
+    'Secretary': 3,
+    'Treasurer': 4,
+    'Auditor': 5,
+    'Public Relations Officer': 6,
+    'Board Member': 7,
+    'Senator': 8,
+    'Governor': 9,
+    'Mayor': 10,
+    'Vice Mayor': 11,
+    'Barangay Captain': 12,
+    'Barangay Councilor': 13,
+    'Department Representative': 14,
+    'Class Representative': 15,
+  }
+
   // Group candidates by position
   const candidatesByPosition = candidates.reduce((acc: Record<string, Candidate[]>, candidate: Candidate) => {
     if (!acc[candidate.position]) {
@@ -139,6 +163,18 @@ const VoterElectionCandidates = () => {
     acc[candidate.position].push(candidate)
     return acc
   }, {} as Record<string, Candidate[]>)
+
+  // Sort positions by priority (popular first, then alphabetically)
+  const sortedPositions = Object.keys(candidatesByPosition).sort((a, b) => {
+    const priorityA = positionPriority[a] || 999
+    const priorityB = positionPriority[b] || 999  
+    
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB
+    }
+    // If same priority or both not in priority list, sort alphabetically
+    return a.localeCompare(b)
+  })
 
   // Check if election is ongoing
   const isElectionOngoing = election ? 
@@ -152,20 +188,74 @@ const VoterElectionCandidates = () => {
   // Initialize selected votes with existing votes when data loads
   useEffect(() => {
     if (existingVotes.length > 0) {
-      const initialVotes: Record<string, number> = {}
+      const initialVotes: Record<string, number | number[]> = {}
+      // Group votes by position to handle multiple votes
+      const votesByPosition: Record<string, number[]> = {}
       existingVotes.forEach(vote => {
-        initialVotes[vote.position] = vote.candidate_id
+        if (!votesByPosition[vote.position]) {
+          votesByPosition[vote.position] = []
+        }
+        votesByPosition[vote.position].push(vote.candidate_id)
+      })
+      // Set as array if multiple, single number if one
+      Object.entries(votesByPosition).forEach(([position, candidateIds]) => {
+        initialVotes[position] = candidateIds.length === 1 ? candidateIds[0] : candidateIds
       })
       setSelectedVotes(initialVotes)
     }
   }, [existingVotes.length]) // Only run when vote count changes
 
-  // Handle vote selection
+  // Get position info to check if multiple votes are allowed
+  const getPositionInfo = (position: string): { allowsMultiple: boolean } => {
+    const firstCandidate = candidates.find((c: Candidate) => c.position === position)
+    return {
+      allowsMultiple: firstCandidate?.allows_multiple_votes || false
+    }
+  }
+
+  // Handle vote selection (supports both single and multiple)
   const handleVoteChange = (position: string, candidateId: number) => {
-    setSelectedVotes(prev => ({
-      ...prev,
-      [position]: candidateId
-    }))
+    const positionInfo = getPositionInfo(position)
+    
+    setSelectedVotes(prev => {
+      const current = prev[position]
+      
+      if (positionInfo.allowsMultiple) {
+        // Multiple votes allowed - use array
+        const currentArray = Array.isArray(current) ? current : (current ? [current] : [])
+        const isSelected = currentArray.includes(candidateId)
+        
+        if (isSelected) {
+          // Deselect
+          const newArray = currentArray.filter(id => id !== candidateId)
+          if (newArray.length === 0) {
+            const { [position]: _, ...rest } = prev
+            return rest
+          }
+          return {
+            ...prev,
+            [position]: newArray.length === 1 ? newArray[0] : newArray
+          }
+        } else {
+          // Select additional
+          return {
+            ...prev,
+            [position]: [...currentArray, candidateId]
+          }
+        }
+      } else {
+        // Single vote only
+        if (current === candidateId) {
+          // Deselect
+          const { [position]: _, ...rest } = prev
+          return rest
+        }
+        return {
+          ...prev,
+          [position]: candidateId
+        }
+      }
+    })
   }
 
   // Toggle bio expansion
@@ -204,10 +294,19 @@ const VoterElectionCandidates = () => {
       return
     }
 
-    const votes = Object.entries(selectedVotes).map(([position, candidate_id]) => ({
-      position,
-      candidate_id
-    }))
+    // Flatten votes - handle both single and multiple votes per position
+    const votes: Array<{ position: string; candidate_id: number }> = []
+    Object.entries(selectedVotes).forEach(([position, candidateIds]) => {
+      if (Array.isArray(candidateIds)) {
+        // Multiple votes for this position
+        candidateIds.forEach(candidate_id => {
+          votes.push({ position, candidate_id })
+        })
+      } else if (candidateIds) {
+        // Single vote for this position
+        votes.push({ position, candidate_id: candidateIds })
+      }
+    })
 
     try {
       await castVotesMutation.mutateAsync({
@@ -376,12 +475,32 @@ const VoterElectionCandidates = () => {
               </ToggleButtonGroup>
             </Box>
 
-            {Object.entries(candidatesByPosition).map(([position, positionCandidates], index) => {
-              const existingVote = existingVotes.find(v => v.position === position)
+            {sortedPositions.map((position, index) => {
+              const positionCandidates = candidatesByPosition[position]
               const sortedCandidates = sortCandidates(positionCandidates as Candidate[])
-              const currentSelection = selectedVotes[position] ?? existingVote?.candidate_id ?? ''
-              const radioGroupValue =
-                typeof currentSelection === 'number' ? String(currentSelection) : ''
+              const positionInfo = getPositionInfo(position)
+              const allowsMultiple = positionInfo.allowsMultiple
+              
+              // Get existing votes for this position (could be multiple)
+              const existingVotesForPosition = existingVotes.filter(v => v.position === position)
+              const currentSelection = selectedVotes[position]
+              
+              // Convert to array for checking if selected
+              const getSelectedIds = (): number[] => {
+                if (Array.isArray(currentSelection)) {
+                  return currentSelection
+                } else if (typeof currentSelection === 'number') {
+                  return [currentSelection]
+                } else if (existingVotesForPosition.length > 0) {
+                  return existingVotesForPosition.map(v => v.candidate_id)
+                }
+                return []
+              }
+              
+              const selectedIds = getSelectedIds()
+              const radioGroupValue = allowsMultiple 
+                ? '' // Not used for checkboxes
+                : (selectedIds.length > 0 ? String(selectedIds[0]) : '')
 
               return (
                 <Box key={position} sx={{ mt: index === 0 ? '0 !important' : '2px !important', mb: '0 !important' }}>
@@ -399,11 +518,24 @@ const VoterElectionCandidates = () => {
                       <Typography variant="h5" sx={{ fontWeight: 600 }}>
                         {position}
                       </Typography>
+                      
+                      {allowsMultiple && (
+                        <Chip
+                          label="Multiple votes allowed"
+                          size="small"
+                          color="info"
+                          sx={{ fontSize: '0.7rem' }}
+                        />
+                      )}
 
-                      {existingVote && (
+                      {existingVotesForPosition.length > 0 && (
                         <Chip
                           icon={<CheckCircleIcon />}
-                          label={`Voted for ${existingVote.candidate_name}`}
+                          label={
+                            existingVotesForPosition.length === 1
+                              ? `Voted for ${existingVotesForPosition[0].candidate_name}`
+                              : `Voted for ${existingVotesForPosition.length} candidates`
+                          }
                           color="success"
                           size="small"
                         />
@@ -417,28 +549,24 @@ const VoterElectionCandidates = () => {
                     disabled={!canVote}
                     sx={{ mt: '0 !important', mb: '0 !important' }}
                   >
-                    <RadioGroup
-                      name={`candidate-${position}`}
-                      value={radioGroupValue}
-                      onChange={e => handleVoteChange(position, Number(e.target.value))}
-                      sx={{ width: '100%', mt: '0 !important', mb: '0 !important' }}
-                    >
-                      {viewMode === 'cards' ? (
-                        <Box
-                          sx={{
-                            display: 'grid',
-                            gridTemplateColumns: {
-                              xs: '1fr',
-                              sm: 'repeat(auto-fill, minmax(320px, 1fr))',
-                            },
-                            gap: '6px !important',
-                            alignItems: 'start',
-                          }}
-                        >
-                          {sortedCandidates.map((candidate: Candidate) => {
-                            const photoUrl = candidate.photo_url ? getImageUrl(candidate.photo_url) : null
-                            const isSelected =
-                              selectedVotes[position] === candidate.id || existingVote?.candidate_id === candidate.id
+                    {allowsMultiple ? (
+                      // Multiple votes - use checkboxes
+                      <Box sx={{ width: '100%', mt: '0 !important', mb: '0 !important' }}>
+                        {viewMode === 'cards' ? (
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: {
+                                xs: '1fr',
+                                sm: 'repeat(auto-fill, minmax(320px, 1fr))',
+                              },
+                              gap: '6px !important',
+                              alignItems: 'start',
+                            }}
+                          >
+                            {sortedCandidates.map((candidate: Candidate) => {
+                              const photoUrl = candidate.photo_url ? getImageUrl(candidate.photo_url) : null
+                              const isSelected = selectedIds.includes(candidate.id)
 
                             const isBioExpanded = expandedBios.has(candidate.id)
                             const bioText = candidate.bio || 'No biography available'
@@ -588,9 +716,13 @@ const VoterElectionCandidates = () => {
                                   {canVote && (
                                     <FormControlLabel
                                       value={String(candidate.id)}
-                                      control={<Radio size="small" />}
+                                      control={allowsMultiple ? <Checkbox size="small" checked={isSelected} /> : <Radio size="small" />}
                                       label="Select this candidate"
                                       onClick={e => e.stopPropagation()}
+                                      onChange={e => {
+                                        e.stopPropagation()
+                                        handleVoteChange(position, candidate.id)
+                                      }}
                                       sx={{
                                         width: '100%',
                                         m: 0,
@@ -628,8 +760,7 @@ const VoterElectionCandidates = () => {
                             <TableBody>
                               {sortedCandidates.map((candidate: Candidate) => {
                                 const photoUrl = candidate.photo_url ? getImageUrl(candidate.photo_url) : null
-                                const isSelected =
-                                  selectedVotes[position] === candidate.id || existingVote?.candidate_id === candidate.id
+                                const isSelected = selectedIds.includes(candidate.id)
 
                                 const isBioExpanded = expandedBios.has(candidate.id)
                                 const bioText = candidate.bio || 'No biography available'
@@ -650,12 +781,30 @@ const VoterElectionCandidates = () => {
                                     }}
                                   >
                                     <TableCell padding="checkbox">
-                                      <Radio
-                                        value={String(candidate.id)}
-                                        disabled={!canVote}
-                                        sx={{ p: 0.5 }}
-                                        onClick={e => e.stopPropagation()}
-                                      />
+                                      {allowsMultiple ? (
+                                        <Checkbox
+                                          checked={isSelected}
+                                          disabled={!canVote}
+                                          sx={{ p: 0.5 }}
+                                          onClick={e => e.stopPropagation()}
+                                          onChange={e => {
+                                            e.stopPropagation()
+                                            handleVoteChange(position, candidate.id)
+                                          }}
+                                        />
+                                      ) : (
+                                        <Radio
+                                          checked={isSelected}
+                                          value={String(candidate.id)}
+                                          disabled={!canVote}
+                                          sx={{ p: 0.5 }}
+                                          onClick={e => e.stopPropagation()}
+                                          onChange={e => {
+                                            e.stopPropagation()
+                                            handleVoteChange(position, candidate.id)
+                                          }}
+                                        />
+                                      )}
                                     </TableCell>
                                     <TableCell>
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -727,7 +876,324 @@ const VoterElectionCandidates = () => {
                           </Table>
                         </TableContainer>
                       )}
-                    </RadioGroup>
+                      </Box>
+                    ) : (
+                      // Single vote - use RadioGroup
+                      <RadioGroup
+                        name={`candidate-${position}`}
+                        value={radioGroupValue}
+                        onChange={e => handleVoteChange(position, Number(e.target.value))}
+                        sx={{ width: '100%', mt: '0 !important', mb: '0 !important' }}
+                      >
+                        {viewMode === 'cards' ? (
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              gridTemplateColumns: {
+                                xs: '1fr',
+                                sm: 'repeat(auto-fill, minmax(320px, 1fr))',
+                              },
+                              gap: '6px !important',
+                              alignItems: 'start',
+                            }}
+                          >
+                            {sortedCandidates.map((candidate: Candidate) => {
+                              const photoUrl = candidate.photo_url ? getImageUrl(candidate.photo_url) : null
+                              const isSelected = selectedIds.includes(candidate.id)
+
+                              const isBioExpanded = expandedBios.has(candidate.id)
+                              const bioText = candidate.bio || 'No biography available'
+                              const isBioLong = bioText.length > 100
+
+                              return (
+                                <Card
+                                  key={candidate.id}
+                                  elevation={isSelected ? 4 : 2}
+                                  onClick={() => canVote && handleVoteChange(position, candidate.id)}
+                                  sx={{
+                                    borderRadius: 2,
+                                    overflow: 'hidden',
+                                    transition: 'all 0.2s',
+                                    border: isSelected ? '2px solid' : '1px solid',
+                                    borderColor: isSelected ? 'primary.main' : 'divider',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    cursor: canVote ? 'pointer' : 'default',
+                                    '&:hover': {
+                                      transform: !canVote ? 'none' : 'translateY(-4px)',
+                                      boxShadow: 3,
+                                      borderColor: canVote ? 'primary.main' : 'divider',
+                                    },
+                                    opacity: !canVote ? 0.7 : 1,
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      height: { xs: 120, sm: 120 },
+                                      bgcolor: 'grey.200',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      overflow: 'hidden',
+                                      position: 'relative',
+                                    }}
+                                  >
+                                    {photoUrl ? (
+                                      <Box
+                                        component="img"
+                                        src={photoUrl}
+                                        alt={candidate.full_name}
+                                        sx={{
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'cover',
+                                        }}
+                                      />
+                                    ) : (
+                                      <PersonIcon sx={{ fontSize: 80, color: 'grey.400' }} />
+                                    )}
+
+                                    {isSelected && (
+                                      <Box
+                                        sx={{
+                                          position: 'absolute',
+                                          top: 8,
+                                          right: 8,
+                                          bgcolor: 'primary.main',
+                                          borderRadius: '50%',
+                                          p: 0.3,
+                                        }}
+                                      >
+                                        <CheckCircleIcon sx={{ color: 'white', fontSize: 24 }} />
+                                      </Box>
+                                    )}
+                                  </Box>
+
+                                  <CardContent
+                                    sx={{
+                                      p: { xs: 2, sm: 1.5 },
+                                      '&:last-child': { pb: { xs: 2, sm: 1.5 } },
+                                    }}
+                                  >
+                                    <Chip
+                                      label={candidate.party_code}
+                                      size="small"
+                                      sx={{
+                                        mb: 0.5,
+                                        bgcolor: 'grey.100',
+                                        fontSize: '0.7rem',
+                                        height: 18,
+                                      }}
+                                    />
+
+                                    <Typography
+                                      variant="h6"
+                                      sx={{
+                                        fontWeight: 600,
+                                        fontSize: { xs: '1rem', sm: '0.95rem' },
+                                        mb: 0.2,
+                                      }}
+                                    >
+                                      {candidate.full_name}
+                                    </Typography>
+
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                      sx={{
+                                        mb: 0.5,
+                                        fontSize: { xs: '0.85rem', sm: '0.75rem' },
+                                      }}
+                                    >
+                                      {position} • {candidate.party_name}
+                                    </Typography>
+
+                                    <Box sx={{ mb: 0.5 }}>
+                                      <Typography
+                                        variant="body2"
+                                        color="text.secondary"
+                                        sx={{
+                                          fontSize: { xs: '0.85rem', sm: '0.75rem' },
+                                          lineHeight: 1.4,
+                                          display: isBioLong && !isBioExpanded ? '-webkit-box' : 'block',
+                                          WebkitLineClamp: isBioLong && !isBioExpanded ? 2 : 'unset',
+                                          WebkitBoxOrient: 'vertical',
+                                          overflow: 'hidden',
+                                          textOverflow: isBioLong && !isBioExpanded ? 'ellipsis' : 'clip',
+                                        }}
+                                      >
+                                        {bioText}
+                                      </Typography>
+
+                                      {isBioLong && (
+                                        <Link
+                                          component="button"
+                                          variant="body2"
+                                          onClick={e => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            toggleBioExpansion(candidate.id)
+                                          }}
+                                          sx={{
+                                            mt: 0.2,
+                                            fontSize: '0.7rem',
+                                            textDecoration: 'none',
+                                            '&:hover': { textDecoration: 'underline' },
+                                          }}
+                                        >
+                                          {isBioExpanded ? 'Read less' : 'Read more'}
+                                        </Link>
+                                      )}
+                                    </Box>
+
+                                    {canVote && (
+                                      <FormControlLabel
+                                        value={String(candidate.id)}
+                                        control={<Radio size="small" />}
+                                        label="Select this candidate"
+                                        onClick={e => e.stopPropagation()}
+                                        sx={{
+                                          width: '100%',
+                                          m: 0,
+                                          mt: 0.5,
+                                          '& .MuiFormControlLabel-label': {
+                                            fontSize: '0.8rem',
+                                          },
+                                        }}
+                                      />
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              )
+                            })}
+                          </Box>
+                        ) : (
+                          <TableContainer
+                            component={Paper}
+                            sx={{
+                              borderRadius: 2,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              boxShadow: 0,
+                            }}
+                          >
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell padding="checkbox"></TableCell>
+                                  <TableCell>Candidate</TableCell>
+                                  <TableCell>Party</TableCell>
+                                  <TableCell>Bio</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {sortedCandidates.map((candidate: Candidate) => {
+                                  const photoUrl = candidate.photo_url ? getImageUrl(candidate.photo_url) : null
+                                  const isSelected = selectedIds.includes(candidate.id)
+
+                                  const isBioExpanded = expandedBios.has(candidate.id)
+                                  const bioText = candidate.bio || 'No biography available'
+                                  const isBioLong = bioText.length > 100
+
+                                  return (
+                                    <TableRow
+                                      key={candidate.id}
+                                      hover
+                                      selected={isSelected}
+                                      onClick={() => canVote && handleVoteChange(position, candidate.id)}
+                                      sx={{
+                                        cursor: canVote ? 'pointer' : 'default',
+                                        backgroundColor: isSelected ? 'action.selected' : 'inherit',
+                                        '&.Mui-selected:hover': {
+                                          backgroundColor: 'action.selected',
+                                        },
+                                      }}
+                                    >
+                                      <TableCell padding="checkbox">
+                                        <Radio
+                                          checked={isSelected}
+                                          value={String(candidate.id)}
+                                          disabled={!canVote}
+                                          sx={{ p: 0.5 }}
+                                          onClick={e => e.stopPropagation()}
+                                          onChange={e => {
+                                            e.stopPropagation()
+                                            handleVoteChange(position, candidate.id)
+                                          }}
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                          <Avatar
+                                            src={photoUrl || undefined}
+                                            alt={candidate.full_name}
+                                            sx={{ width: 40, height: 40, bgcolor: 'grey.200' }}
+                                          >
+                                            {!photoUrl && <PersonIcon sx={{ fontSize: 22, color: 'grey.500' }} />}
+                                          </Avatar>
+                                          <Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                              {candidate.full_name}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                              {position}
+                                            </Typography>
+                                          </Box>
+                                        </Box>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={`${candidate.party_name} (${candidate.party_code})`}
+                                          size="small"
+                                          sx={{ fontSize: '0.7rem', height: 20 }}
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography
+                                          variant="body2"
+                                          color="text.secondary"
+                                          sx={{
+                                            fontSize: '0.8rem',
+                                            lineHeight: 1.4,
+                                            display: isBioLong && !isBioExpanded ? '-webkit-box' : 'block',
+                                            WebkitLineClamp: isBioLong && !isBioExpanded ? 2 : 'unset',
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                            textOverflow: isBioLong && !isBioExpanded ? 'ellipsis' : 'clip',
+                                          }}
+                                        >
+                                          {bioText}
+                                        </Typography>
+
+                                        {isBioLong && (
+                                          <Link
+                                            component="button"
+                                            variant="body2"
+                                            onClick={e => {
+                                              e.preventDefault()
+                                              e.stopPropagation()
+                                              toggleBioExpansion(candidate.id)
+                                            }}
+                                            sx={{
+                                              mt: 0.3,
+                                              fontSize: '0.7rem',
+                                              textDecoration: 'none',
+                                              '&:hover': { textDecoration: 'underline' },
+                                            }}
+                                          >
+                                            {isBioExpanded ? 'Read less' : 'Read more'}
+                                          </Link>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  )
+                                })}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        )}
+                      </RadioGroup>
+                    )}
                   </FormControl>
                 </Box>
               )

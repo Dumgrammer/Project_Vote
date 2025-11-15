@@ -59,40 +59,43 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
   const createMutation = useCreateVoter()
   const updateMutation = useUpdateVoter()
 
-  // Set form values when editing
+  // Set form values when editing or when dialog opens
   React.useEffect(() => {
-    if (voter) {
-      reset({
-        fname: voter.fname,
-        mname: voter.mname || '',
-        lname: voter.lname,
-        email: voter.email,
-        contact_number: voter.contact_number || '',
-        password: '', // Don't populate password for security
-        is_verified: Boolean(voter.is_verified), // Explicitly convert to boolean
-        is_archived: Boolean(voter.is_archived), // Explicitly convert to boolean
-        sex: voter.sex ?? 'other',
-        voter_type: voter.voter_type ?? 'school',
-      })
-      setImagePreview(voter.v_image_url)
-      setSelectedFile(null)
-    } else {
-      reset({
-        fname: '',
-        mname: '',
-        lname: '',
-        email: '',
-        contact_number: '',
-        password: '',
-        sex: 'male',
-        voter_type: 'school',
-        is_verified: false,
-        is_archived: false,
-      })
-      setImagePreview(null)
-      setSelectedFile(null)
+    if (open) {
+      if (voter) {
+        reset({
+          fname: voter.fname,
+          mname: voter.mname || '',
+          lname: voter.lname,
+          email: voter.email,
+          contact_number: voter.contact_number || '',
+          password: '', // Don't populate password for security
+          is_verified: Boolean(voter.is_verified), // Explicitly convert to boolean
+          is_archived: Boolean(voter.is_archived), // Explicitly convert to boolean
+          sex: voter.sex ?? 'male',
+          voter_type: voter.voter_type ?? 'school',
+        })
+        setImagePreview(voter.v_image_url)
+        setSelectedFile(null)
+      } else {
+        reset({
+          fname: '',
+          mname: '',
+          lname: '',
+          email: '',
+          contact_number: '',
+          password: '',
+          sex: 'male',
+          voter_type: 'school',
+          is_verified: false,
+          is_archived: false,
+        })
+        setImagePreview(null)
+        setSelectedFile(null)
+      }
+      setSubmitError(null)
     }
-  }, [voter, reset])
+  }, [voter, reset, open])
 
   const onSubmit = async (data: VoterFormData) => {
     try {
@@ -121,15 +124,19 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
           contact_number: data.contact_number,
           password: data.password || 'Pollify123', // Default password if not provided
           v_image: selectedFile || undefined,
-          sex: data.sex,
-          voter_type: data.voter_type,
+          sex: data.sex || 'male', // Ensure sex is always provided
+          voter_type: data.voter_type || 'school', // Ensure voter_type is always provided
           is_verified: data.is_verified,
           is_archived: data.is_archived,
         })
       }
       handleClose()
-    } catch (error) {
+      setSubmitError(null)
+    } catch (error: any) {
       console.error('Failed to save voter:', error)
+      // Show error to user
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save voter. Please try again.'
+      setSubmitError(errorMessage)
     }
   }
 
@@ -137,6 +144,7 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
     reset()
     setImagePreview(null)
     setSelectedFile(null)
+    setSubmitError(null)
     onClose()
   }
 
@@ -159,15 +167,16 @@ const CreateVoter: React.FC<CreateVoterProps> = ({ open, onClose, voter }) => {
 
   const isLoading = createMutation.isPending || updateMutation.isPending
   const error = createMutation.error || updateMutation.error
+  const [submitError, setSubmitError] = React.useState<string | null>(null)
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{isEditMode ? 'Edit Voter' : 'Add New Voter'}</DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
-          {error && (
+          {(error || submitError) && (
             <Alert severity="error" sx={{ mb: 2 }}>
-              {error instanceof Error ? error.message : 'An error occurred'}
+              {submitError || (error instanceof Error ? error.message : 'An error occurred')}
             </Alert>
           )}
 

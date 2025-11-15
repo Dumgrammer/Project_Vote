@@ -16,25 +16,29 @@ class Seeder extends GlobalUtil {
             // 1. Seed Admin
             $this->seedAdmin();
 
-            // 2. Seed Parties
+            // 2. Seed Positions (must be before elections and candidates)
+            $this->seedPositions();
+
+            // 3. Seed Parties
             $this->seedParties();
 
-            // 3. Seed Elections
+            // 4. Seed Elections
             $this->seedElections();
 
-            // 4. Seed Voters
+            // 5. Seed Voters
             $this->seedVoters();
 
-            // 5. Seed Candidates
+            // 6. Seed Candidates
             $this->seedCandidates();
 
-            // 6. Seed Votes
+            // 7. Seed Votes
             $this->seedVotes();
 
             echo "\n✅ Database seeding completed successfully!\n";
 
         } catch (\Exception $e) {
             echo "\n❌ Error during seeding: " . $e->getMessage() . "\n";
+            echo "Stack trace: " . $e->getTraceAsString() . "\n";
         }
     }
 
@@ -76,6 +80,71 @@ class Seeder extends GlobalUtil {
         } catch (\Exception $e) {
             echo "  ⚠ Could not create admin: " . $e->getMessage() . "\n";
             echo "  - Please use your existing admin account.\n";
+        }
+    }
+
+    private function seedPositions() {
+        echo "Seeding Positions...\n";
+        
+        // Get admin ID
+        $adminStmt = $this->pdo->query("SELECT id FROM admin ORDER BY id ASC LIMIT 1");
+        $adminId = $adminStmt->fetchColumn();
+        
+        if ($adminId === false || $adminId === null) {
+            echo "  ⚠ No admin found, skipping positions.\n";
+            return;
+        }
+        
+        echo "  - Using admin ID: {$adminId}\n";
+        
+        $positions = [
+            // School positions
+            ['President', 'school', false],
+            ['Vice President', 'school', false],
+            ['Secretary', 'school', false],
+            ['Treasurer', 'school', false],
+            ['Auditor', 'school', false],
+            ['Public Relations Officer', 'school', false],
+            ['Board Member', 'school', true], // Allows multiple votes
+            ['Department Representative', 'school', true], // Allows multiple votes
+            
+            // Corporate positions
+            ['CEO', 'corporate', false],
+            ['COO', 'corporate', false],
+            ['CFO', 'corporate', false],
+            ['CTO', 'corporate', false],
+            ['HR Director', 'corporate', false],
+            ['Marketing Director', 'corporate', false],
+            ['Board of Directors', 'corporate', true], // Allows multiple votes
+            ['Department Head', 'corporate', true], // Allows multiple votes
+            
+            // Barangay positions
+            ['Barangay Captain', 'barangay', false],
+            ['Barangay Secretary', 'barangay', false],
+            ['Barangay Treasurer', 'barangay', false],
+            ['Sangguniang Barangay Member', 'barangay', true], // Allows multiple votes
+            ['SK Chairman', 'barangay', false],
+            ['SK Secretary', 'barangay', false],
+            ['SK Treasurer', 'barangay', false],
+        ];
+
+        foreach ($positions as $position) {
+            // Check if position exists
+            $stmt = $this->pdo->prepare("SELECT id FROM positions WHERE name = ? AND type = ?");
+            $stmt->execute([$position[0], $position[1]]);
+            
+            if (!$stmt->fetch()) {
+                $sql = "INSERT INTO positions (name, type, allows_multiple_votes, created_by) 
+                        VALUES (?, ?, ?, ?)";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([
+                    $position[0],
+                    $position[1],
+                    $position[2] ? 1 : 0,
+                    $adminId
+                ]);
+                echo "  ✓ Position created: {$position[0]} ({$position[1]})\n";
+            }
         }
     }
 
@@ -134,35 +203,53 @@ class Seeder extends GlobalUtil {
             [
                 'title' => 'Student Council Election 2024 - ENDED',
                 'description' => 'The annual student council leadership election has concluded. View the results to see who won!',
+                'type' => 'school',
                 'start' => date('Y-m-d H:i:s', strtotime('-30 days')),
                 'end' => date('Y-m-d H:i:s', strtotime('-5 days')),
             ],
             [
                 'title' => 'Mid-Year Leadership Election - ONGOING',
                 'description' => 'Vote now for your leaders! Election is currently in progress for the second semester leadership positions.',
+                'type' => 'school',
                 'start' => date('Y-m-d H:i:s', strtotime('-3 days')),
                 'end' => date('Y-m-d H:i:s', strtotime('+14 days')),
             ],
             [
                 'title' => 'Campus Organization Election 2025 - UPCOMING',
                 'description' => 'Upcoming election for campus organization officers. Stay tuned for the start date!',
+                'type' => 'school',
                 'start' => date('Y-m-d H:i:s', strtotime('+10 days')),
                 'end' => date('Y-m-d H:i:s', strtotime('+25 days')),
+            ],
+            [
+                'title' => 'Corporate Board Election 2024',
+                'description' => 'Annual corporate board and executive positions election.',
+                'type' => 'corporate',
+                'start' => date('Y-m-d H:i:s', strtotime('-2 days')),
+                'end' => date('Y-m-d H:i:s', strtotime('+15 days')),
+            ],
+            [
+                'title' => 'Barangay Election 2024',
+                'description' => 'Community barangay leadership election for local governance.',
+                'type' => 'barangay',
+                'start' => date('Y-m-d H:i:s', strtotime('+5 days')),
+                'end' => date('Y-m-d H:i:s', strtotime('+20 days')),
             ],
         ];
 
         foreach ($elections as $election) {
-            $sql = "INSERT INTO elections (election_title, description, start_date, end_date, created_by) 
-                    VALUES (?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO elections (election_title, description, election_type, start_date, end_date, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
                 $election['title'],
                 $election['description'],
+                $election['type'],
                 $election['start'],
                 $election['end'],
                 $adminId
             ]);
-            echo "  ✓ Election created: {$election['title']}\n";
+            echo "  ✓ Election created: {$election['title']} ({$election['type']})\n";
         }
     }
 
@@ -181,44 +268,48 @@ class Seeder extends GlobalUtil {
         echo "  - Using admin ID: {$adminId}\n";
         
         $voters = [
-            // Verified voters (30 voters)
-            ['Juan', 'Miguel', 'Dela Cruz', 'juan.delacruz@email.com', '09123456789', true],
-            ['Maria', 'Santos', 'Garcia', 'maria.garcia@email.com', '09234567890', true],
-            ['Pedro', 'Ramos', 'Reyes', 'pedro.reyes@email.com', '09345678901', true],
-            ['Ana', 'Lopez', 'Torres', 'ana.torres@email.com', '09456789012', true],
-            ['Carlos', 'Fernando', 'Martinez', 'carlos.martinez@email.com', '09567890123', true],
-            ['Sofia', 'Isabel', 'Hernandez', 'sofia.hernandez@email.com', '09678901234', true],
-            ['Miguel', 'Angel', 'Lopez', 'miguel.lopez@email.com', '09789012345', true],
-            ['Carmen', 'Rosa', 'Gonzalez', 'carmen.gonzalez@email.com', '09890123456', true],
-            ['Luis', 'Alberto', 'Fernandez', 'luis.fernandez@email.com', '09901234567', true],
-            ['Isabel', 'Maria', 'Rodriguez', 'isabel.rodriguez@email.com', '09012345678', true],
-            ['Ricardo', 'Cruz', 'Salazar', 'ricardo.salazar@email.com', '09123456799', true],
-            ['Elena', 'Diaz', 'Vargas', 'elena.vargas@email.com', '09123456800', true],
-            ['Fernando', 'Ramirez', 'Moreno', 'fernando.moreno@email.com', '09123456801', true],
-            ['Patricia', 'Jimenez', 'Romero', 'patricia.romero@email.com', '09123456802', true],
-            ['Roberto', 'Sanchez', 'Dominguez', 'roberto.dominguez@email.com', '09123456803', true],
-            ['Angela', 'Perez', 'Gutierrez', 'angela.gutierrez@email.com', '09123456804', true],
-            ['Daniel', 'Gomez', 'Ortiz', 'daniel.ortiz@email.com', '09123456805', true],
-            ['Laura', 'Torres', 'Silva', 'laura.silva@email.com', '09123456806', true],
-            ['Jorge', 'Hernandez', 'Medina', 'jorge.medina@email.com', '09123456807', true],
-            ['Monica', 'Ruiz', 'Aguilar', 'monica.aguilar@email.com', '09123456808', true],
-            ['Francisco', 'Morales', 'Chavez', 'francisco.chavez@email.com', '09123456809', true],
-            ['Gabriela', 'Castillo', 'Ramos', 'gabriela.ramos@email.com', '09123456810', true],
-            ['Alejandro', 'Ortega', 'Guerrero', 'alejandro.guerrero@email.com', '09123456811', true],
-            ['Valentina', 'Rojas', 'Nunez', 'valentina.nunez@email.com', '09123456812', true],
-            ['Diego', 'Vega', 'Soto', 'diego.soto@email.com', '09123456813', true],
-            ['Isabella', 'Molina', 'Herrera', 'isabella.herrera@email.com', '09123456814', true],
-            ['Sebastian', 'Campos', 'Cervantes', 'sebastian.cervantes@email.com', '09123456815', true],
-            ['Camila', 'Mendez', 'Alvarez', 'camila.alvarez@email.com', '09123456816', true],
-            ['Mateo', 'Espinoza', 'Fuentes', 'mateo.fuentes@email.com', '09123456817', true],
-            ['Luciana', 'Paredes', 'Pena', 'luciana.pena@email.com', '09123456818', true],
+            // Verified voters - School type (20 voters)
+            ['Juan', 'Miguel', 'Dela Cruz', 'juan.delacruz@email.com', '09123456789', 'male', 'school', true],
+            ['Maria', 'Santos', 'Garcia', 'maria.garcia@email.com', '09234567890', 'female', 'school', true],
+            ['Pedro', 'Ramos', 'Reyes', 'pedro.reyes@email.com', '09345678901', 'male', 'school', true],
+            ['Ana', 'Lopez', 'Torres', 'ana.torres@email.com', '09456789012', 'female', 'school', true],
+            ['Carlos', 'Fernando', 'Martinez', 'carlos.martinez@email.com', '09567890123', 'male', 'school', true],
+            ['Sofia', 'Isabel', 'Hernandez', 'sofia.hernandez@email.com', '09678901234', 'female', 'school', true],
+            ['Miguel', 'Angel', 'Lopez', 'miguel.lopez@email.com', '09789012345', 'male', 'school', true],
+            ['Carmen', 'Rosa', 'Gonzalez', 'carmen.gonzalez@email.com', '09890123456', 'female', 'school', true],
+            ['Luis', 'Alberto', 'Fernandez', 'luis.fernandez@email.com', '09901234567', 'male', 'school', true],
+            ['Isabel', 'Maria', 'Rodriguez', 'isabel.rodriguez@email.com', '09012345678', 'female', 'school', true],
+            ['Ricardo', 'Cruz', 'Salazar', 'ricardo.salazar@email.com', '09123456799', 'male', 'school', true],
+            ['Elena', 'Diaz', 'Vargas', 'elena.vargas@email.com', '09123456800', 'female', 'school', true],
+            ['Fernando', 'Ramirez', 'Moreno', 'fernando.moreno@email.com', '09123456801', 'male', 'school', true],
+            ['Patricia', 'Jimenez', 'Romero', 'patricia.romero@email.com', '09123456802', 'female', 'school', true],
+            ['Roberto', 'Sanchez', 'Dominguez', 'roberto.dominguez@email.com', '09123456803', 'male', 'school', true],
+            ['Angela', 'Perez', 'Gutierrez', 'angela.gutierrez@email.com', '09123456804', 'female', 'school', true],
+            ['Daniel', 'Gomez', 'Ortiz', 'daniel.ortiz@email.com', '09123456805', 'male', 'school', true],
+            ['Laura', 'Torres', 'Silva', 'laura.silva@email.com', '09123456806', 'female', 'school', true],
+            ['Jorge', 'Hernandez', 'Medina', 'jorge.medina@email.com', '09123456807', 'male', 'school', true],
+            ['Monica', 'Ruiz', 'Aguilar', 'monica.aguilar@email.com', '09123456808', 'female', 'school', true],
+            
+            // Corporate type (5 voters)
+            ['Francisco', 'Morales', 'Chavez', 'francisco.chavez@email.com', '09123456809', 'male', 'corporate', true],
+            ['Gabriela', 'Castillo', 'Ramos', 'gabriela.ramos@email.com', '09123456810', 'female', 'corporate', true],
+            ['Alejandro', 'Ortega', 'Guerrero', 'alejandro.guerrero@email.com', '09123456811', 'male', 'corporate', true],
+            ['Valentina', 'Rojas', 'Nunez', 'valentina.nunez@email.com', '09123456812', 'female', 'corporate', true],
+            ['Diego', 'Vega', 'Soto', 'diego.soto@email.com', '09123456813', 'male', 'corporate', true],
+            
+            // Barangay type (5 voters)
+            ['Isabella', 'Molina', 'Herrera', 'isabella.herrera@email.com', '09123456814', 'female', 'barangay', true],
+            ['Sebastian', 'Campos', 'Cervantes', 'sebastian.cervantes@email.com', '09123456815', 'male', 'barangay', true],
+            ['Camila', 'Mendez', 'Alvarez', 'camila.alvarez@email.com', '09123456816', 'female', 'barangay', true],
+            ['Mateo', 'Espinoza', 'Fuentes', 'mateo.fuentes@email.com', '09123456817', 'male', 'barangay', true],
+            ['Luciana', 'Paredes', 'Pena', 'luciana.pena@email.com', '09123456818', 'female', 'barangay', true],
             
             // Unverified voters (5 voters)
-            ['Antonio', 'Santos', 'Rios', 'antonio.rios@email.com', '09123456819', false],
-            ['Rosa', 'Lopez', 'Blanco', 'rosa.blanco@email.com', '09123456820', false],
-            ['Enrique', 'Martinez', 'Vidal', 'enrique.vidal@email.com', '09123456821', false],
-            ['Clara', 'Garcia', 'Roman', 'clara.roman@email.com', '09123456822', false],
-            ['Emilio', 'Fernandez', 'Luna', 'emilio.luna@email.com', '09123456823', false],
+            ['Antonio', 'Santos', 'Rios', 'antonio.rios@email.com', '09123456819', 'male', 'school', false],
+            ['Rosa', 'Lopez', 'Blanco', 'rosa.blanco@email.com', '09123456820', 'female', 'school', false],
+            ['Enrique', 'Martinez', 'Vidal', 'enrique.vidal@email.com', '09123456821', 'male', 'corporate', false],
+            ['Clara', 'Garcia', 'Roman', 'clara.roman@email.com', '09123456822', 'female', 'barangay', false],
+            ['Emilio', 'Fernandez', 'Luna', 'emilio.luna@email.com', '09123456823', 'male', 'school', false],
         ];
 
         foreach ($voters as $index => $voter) {
@@ -229,8 +320,8 @@ class Seeder extends GlobalUtil {
             $stmt->execute([$voter[3]]);
             
             if (!$stmt->fetch()) {
-                $sql = "INSERT INTO voters (voters_id, fname, mname, lname, email, contact_number, password, is_verified, date_verified, created_by) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $sql = "INSERT INTO voters (voters_id, fname, mname, lname, email, contact_number, sex, voter_type, password, is_verified, date_verified, created_by) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $stmt = $this->pdo->prepare($sql);
                 $stmt->execute([
                     $votersId,
@@ -239,12 +330,14 @@ class Seeder extends GlobalUtil {
                     $voter[2],
                     $voter[3],
                     $voter[4],
+                    $voter[5],
+                    $voter[6],
                     password_hash('password123', PASSWORD_DEFAULT),
-                    $voter[5] ? 1 : 0,
-                    $voter[5] ? date('Y-m-d H:i:s') : null,
+                    $voter[7] ? 1 : 0,
+                    $voter[7] ? date('Y-m-d H:i:s') : null,
                     $adminId
                 ]);
-                echo "  ✓ Voter created: {$voter[0]} {$voter[2]} ({$voter[3]} / password123)\n";
+                echo "  ✓ Voter created: {$voter[0]} {$voter[2]} ({$voter[3]} / password123) - {$voter[6]}\n";
             }
         }
     }
@@ -263,11 +356,11 @@ class Seeder extends GlobalUtil {
         
         echo "  - Using admin ID: {$adminId}\n";
         
-        // Get election IDs
-        $stmt = $this->pdo->query("SELECT id FROM elections ORDER BY id LIMIT 3");
-        $elections = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        // Get elections with their types
+        $stmt = $this->pdo->query("SELECT id, election_type FROM elections ORDER BY id");
+        $electionsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        if (count($elections) < 1) {
+        if (count($electionsData) < 1) {
             echo "  - No elections found, skipping candidates.\n";
             return;
         }
@@ -276,8 +369,16 @@ class Seeder extends GlobalUtil {
         $stmt = $this->pdo->query("SELECT party_code, id FROM parties");
         $parties = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
+        // Get position IDs (name => id mapping, grouped by type)
+        $stmt = $this->pdo->query("SELECT name, type, id FROM positions");
+        $positionsRaw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $positions = [];
+        foreach ($positionsRaw as $pos) {
+            $positions[$pos['type']][$pos['name']] = $pos['id'];
+        }
+
         $candidates = [
-            // Election 1 (Ended)
+            // Election 1 (Ended - School)
             [
                 'election' => 0,
                 'fname' => 'Roberto',
@@ -458,39 +559,135 @@ class Seeder extends GlobalUtil {
                 'position' => 'Treasurer',
                 'bio' => 'Business student with financial acumen.'
             ],
+            
+            // Election 4 (Corporate)
+            [
+                'election' => 3,
+                'fname' => 'Robert',
+                'lname' => 'Chen',
+                'party' => 'LP',
+                'position' => 'CEO',
+                'bio' => 'Visionary executive with 20 years of leadership experience.'
+            ],
+            [
+                'election' => 3,
+                'fname' => 'Sarah',
+                'lname' => 'Johnson',
+                'party' => 'DP',
+                'position' => 'CEO',
+                'bio' => 'Innovative leader focused on sustainable growth.'
+            ],
+            [
+                'election' => 3,
+                'fname' => 'Michael',
+                'lname' => 'Brown',
+                'party' => 'GP',
+                'position' => 'CFO',
+                'bio' => 'Financial expert with proven track record.'
+            ],
+            [
+                'election' => 3,
+                'fname' => 'Jennifer',
+                'lname' => 'Davis',
+                'party' => 'RP',
+                'position' => 'CTO',
+                'bio' => 'Technology strategist driving digital transformation.'
+            ],
+            [
+                'election' => 3,
+                'fname' => 'David',
+                'lname' => 'Wilson',
+                'party' => 'LP',
+                'position' => 'HR Director',
+                'bio' => 'People-focused leader building strong teams.'
+            ],
+            
+            // Election 5 (Barangay)
+            [
+                'election' => 4,
+                'fname' => 'Rodrigo',
+                'lname' => 'Dela Cruz',
+                'party' => 'LP',
+                'position' => 'Barangay Captain',
+                'bio' => 'Dedicated public servant committed to community development.'
+            ],
+            [
+                'election' => 4,
+                'fname' => 'Lourdes',
+                'lname' => 'Santos',
+                'party' => 'DP',
+                'position' => 'Barangay Captain',
+                'bio' => 'Experienced leader with deep community roots.'
+            ],
+            [
+                'election' => 4,
+                'fname' => 'Manuel',
+                'lname' => 'Reyes',
+                'party' => 'GP',
+                'position' => 'Barangay Secretary',
+                'bio' => 'Organized administrator ensuring transparent governance.'
+            ],
+            [
+                'election' => 4,
+                'fname' => 'Carmen',
+                'lname' => 'Villanueva',
+                'party' => 'RP',
+                'position' => 'Barangay Treasurer',
+                'bio' => 'Trustworthy financial steward for community funds.'
+            ],
+            [
+                'election' => 4,
+                'fname' => 'Jose',
+                'lname' => 'Garcia',
+                'party' => 'LP',
+                'position' => 'SK Chairman',
+                'bio' => 'Youth leader empowering the next generation.'
+            ],
         ];
 
         foreach ($candidates as $candidate) {
-            if (!isset($elections[$candidate['election']])) continue;
+            if (!isset($electionsData[$candidate['election']])) continue;
+            
+            $electionData = $electionsData[$candidate['election']];
+            $electionId = $electionData['id'];
+            $electionType = $electionData['election_type'];
             
             $partyId = $parties[$candidate['party']] ?? null;
             if (!$partyId) continue;
 
+            // Get position ID based on election type and position name
+            $positionId = $positions[$electionType][$candidate['position']] ?? null;
+            if (!$positionId) {
+                echo "  ⚠ Position '{$candidate['position']}' not found for type '{$electionType}', skipping candidate\n";
+                continue;
+            }
+
             // Check if candidate already exists
             $checkStmt = $this->pdo->prepare("
                 SELECT COUNT(*) FROM candidates 
-                WHERE election_id = ? AND fname = ? AND lname = ? AND position = ?
+                WHERE election_id = ? AND fname = ? AND lname = ? AND position_id = ?
             ");
             $checkStmt->execute([
-                $elections[$candidate['election']],
+                $electionId,
                 $candidate['fname'],
                 $candidate['lname'],
-                $candidate['position']
+                $positionId
             ]);
             
             if ($checkStmt->fetchColumn() > 0) {
                 continue; // Skip duplicate
             }
 
-            $sql = "INSERT INTO candidates (election_id, fname, lname, party_id, position, bio, created_by) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO candidates (election_id, fname, lname, party_id, position_id, position, bio, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([
-                $elections[$candidate['election']],
+                $electionId,
                 $candidate['fname'],
                 $candidate['lname'],
                 $partyId,
-                $candidate['position'],
+                $positionId,
+                $candidate['position'], // Keep position name for backward compatibility
                 $candidate['bio'],
                 $adminId
             ]);

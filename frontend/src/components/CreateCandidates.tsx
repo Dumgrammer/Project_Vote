@@ -21,7 +21,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { candidateSchema, type CandidateFormData } from '../schemas/candidateSchema'
 import { useCreateCandidate, useUpdateCandidate, type Candidate } from '../hooks/CandidateHooks'
 import { useGetParties } from '../hooks/PartyHooks'
+import { useGetPositions } from '../hooks/PositionHooks'
+import { useGetElection } from '../hooks/ElectionHooks'
 import CreateParty from './CreateParty'
+import CreatePosition from './CreatePosition'
 
 interface CreateCandidatesProps {
   open: boolean
@@ -32,17 +35,6 @@ interface CreateCandidatesProps {
   editMode?: boolean
   canModify?: boolean
 }
-
-const positions = [
-  'President',
-  'Vice President',
-  'Secretary',
-  'Treasurer',
-  'Auditor',
-  'Public Relations Officer',
-  'Board Member',
-  'Department Representative',
-]
 
 export default function CreateCandidates({
   open,
@@ -55,11 +47,14 @@ export default function CreateCandidates({
 }: CreateCandidatesProps) {
   const [imagePreview, setImagePreview] = React.useState<string | null>(null)
   const [partyDialogOpen, setPartyDialogOpen] = React.useState(false)
+  const [positionDialogOpen, setPositionDialogOpen] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const { mutate: createCandidate, isPending: isCreating, error: createError } = useCreateCandidate()
   const { mutate: updateCandidate, isPending: isUpdating, error: updateError } = useUpdateCandidate()
   const { data: parties = [], isLoading: partiesLoading } = useGetParties()
+  const { data: election } = useGetElection(electionId, open)
+  const { data: positions = [], isLoading: positionsLoading } = useGetPositions(false, election?.election_type)
 
   const isPending = isCreating || isUpdating
   const error = createError || updateError
@@ -79,7 +74,7 @@ export default function CreateCandidates({
       mname: initialData?.mname || '',
       lname: initialData?.lname || '',
       party_id: initialData?.party_id || 0,
-      position: initialData?.position || '',
+      position_id: initialData?.position_id || 0,
       bio: initialData?.bio || '',
       photo: null,
     },
@@ -93,13 +88,24 @@ export default function CreateCandidates({
         mname: initialData.mname || '',
         lname: initialData.lname,
         party_id: initialData.party_id,
-        position: initialData.position,
+        position_id: initialData.position_id || 0,
         bio: initialData.bio,
         photo: null,
       })
       setImagePreview(initialData.photo_url || null)
+    } else if (open) {
+      reset({
+        fname: '',
+        mname: '',
+        lname: '',
+        party_id: 0,
+        position_id: 0,
+        bio: '',
+        photo: null,
+      })
+      setImagePreview(null)
     }
-  }, [initialData, reset])
+  }, [initialData, reset, open])
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (isLocked) return
@@ -151,7 +157,7 @@ export default function CreateCandidates({
             mname: data.mname,
             lname: data.lname,
             party_id: data.party_id,
-            position: data.position,
+            position_id: data.position_id,
             bio: data.bio,
             photo: data.photo,
           },
@@ -174,7 +180,7 @@ export default function CreateCandidates({
           mname: data.mname,
           lname: data.lname,
           party_id: data.party_id,
-          position: data.position,
+          position_id: data.position_id,
           bio: data.bio,
           photo: data.photo,
         },
@@ -347,29 +353,48 @@ export default function CreateCandidates({
             )}
           />
 
-          {/* Position Dropdown */}
-          <Controller
-            name="position"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                select
-                label="Position"
-                fullWidth
-                required
-                error={!!errors.position}
-                helperText={errors.position?.message}
-                disabled={isInteractionDisabled}
-              >
-                {positions.map((position) => (
-                  <MenuItem key={position} value={position}>
-                    {position}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
-          />
+          {/* Position Dropdown with Add New Button */}
+          <Box>
+            <Controller
+              name="position_id"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  select
+                  label="Position"
+                  fullWidth
+                  required
+                  error={!!errors.position_id}
+                  helperText={errors.position_id?.message}
+                  disabled={positionsLoading || isInteractionDisabled}
+                  value={field.value || ''}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                >
+                  {positions.length === 0 && !positionsLoading ? (
+                    <MenuItem disabled value={0}>
+                      No positions available. Please create positions for this election type first.
+                    </MenuItem>
+                  ) : (
+                    positions.map((position) => (
+                      <MenuItem key={position.id} value={position.id}>
+                        {position.name}
+                        {position.allows_multiple_votes && ' (Multiple votes allowed)'}
+                      </MenuItem>
+                    ))
+                  )}
+                </TextField>
+              )}
+            />
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => !isInteractionDisabled && setPositionDialogOpen(true)}
+              sx={{ mt: 1, textTransform: 'none' }}
+              disabled={isInteractionDisabled || !election?.election_type}
+            >
+              Add New Position
+            </Button>
+          </Box>
 
           {/* Party Dropdown with Add New Button */}
           <Box>
@@ -461,6 +486,16 @@ export default function CreateCandidates({
         onSuccess={() => {
           // Party list will auto-refresh due to React Query invalidation
         }}
+      />
+
+      {/* Create Position Dialog */}
+      <CreatePosition
+        open={positionDialogOpen}
+        onClose={() => setPositionDialogOpen(false)}
+        onSuccess={() => {
+          // Position list will auto-refresh due to React Query invalidation
+        }}
+        electionType={election?.election_type}
       />
     </Dialog>
   )

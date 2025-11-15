@@ -18,6 +18,7 @@ import {
 } from '@mui/material'
 import ChatIcon from '@mui/icons-material/Chat'
 import CloseIcon from '@mui/icons-material/Close'
+import Chip from '@mui/material/Chip'
 
 type ChatMessage = {
   id: string
@@ -38,6 +39,46 @@ if (import.meta.env.DEV) {
 }
 
 const SYSTEM_PROMPT = `You are Pollify's helpful election assistant. Guide voters on poll procedures, voting schedules, and platform usage. When asked about candidates, provide balanced, factual responses using the information shared by the voter. Encourage civic participation and respectful dialogue. If unsure, politely say you are not certain and suggest contacting the election administrators.`
+
+// Static Q&A pairs for quick answers (fallback when API is unavailable)
+const STATIC_QUESTIONS: Array<{ question: string; answer: string }> = [
+  {
+    question: 'How do I vote?',
+    answer: 'To vote, simply select your preferred candidate(s) for each position. For positions that allow multiple votes, you can select multiple candidates using checkboxes. For single-vote positions, select one candidate using radio buttons. Once you\'ve made your selections, click "Submit Votes" to cast your ballot. You can edit your votes as long as the election is ongoing.',
+  },
+  {
+    question: 'Can I change my vote?',
+    answer: 'Yes! You can change your vote as long as the election is still ongoing. Simply select different candidates and click "Update Votes" to save your changes. Once the election ends, your votes are final and cannot be changed.',
+  },
+  {
+    question: 'What does "Multiple votes allowed" mean?',
+    answer: 'Some positions allow you to vote for multiple candidates. When you see the "Multiple votes allowed" badge, you can select more than one candidate for that position using checkboxes. For positions without this badge, you can only select one candidate.',
+  },
+  {
+    question: 'How do I know if my vote was submitted?',
+    answer: 'After clicking "Submit Votes" or "Update Votes", you\'ll see a success message confirming your votes were saved. You\'ll also see a green badge showing which candidates you voted for. If you see this badge, your vote has been successfully recorded.',
+  },
+  {
+    question: 'What if I forgot my password?',
+    answer: 'If you forgot your password, please contact the election administrators for assistance. They can help you reset your account credentials. Make sure to have your Voter ID ready when contacting them.',
+  },
+  {
+    question: 'When does the election end?',
+    answer: 'The election end date and time are displayed at the top of the election page. You can vote anytime between the start date and end date. Make sure to submit your votes before the election closes!',
+  },
+  {
+    question: 'Can I vote for candidates from different parties?',
+    answer: 'Yes, absolutely! You can vote for candidates from any party. Your votes are independent for each position - you can mix and match candidates from different parties as you see fit.',
+  },
+  {
+    question: 'What happens if I don\'t vote?',
+    answer: 'Voting is your civic right and responsibility. If you don\'t vote, you won\'t be able to influence the election outcome. We encourage all eligible voters to participate. However, voting is not mandatory - it\'s your choice.',
+  },
+  {
+    question: 'Who should I vote for?',
+    answer: 'Vote for candidates who demonstrate genuine leadership qualities and capabilities, not just because you know them personally. Consider their:\n\n• **Track Record**: Look at their past achievements and experience\n• **Vision**: Do they have clear plans and goals for the position?\n• **Integrity**: Are they honest, trustworthy, and ethical?\n• **Competence**: Do they have the skills and knowledge needed for the role?\n• **Commitment**: Are they dedicated to serving the community?\n\nRead candidate bios, review their platforms, and make an informed decision based on who can best lead and serve. Your vote should reflect who you believe will genuinely contribute to positive change, regardless of personal relationships.',
+  },
+]
 
 const buildRequestBody = (messages: ChatMessage[], userInput: string) => {
   const history = messages.map((message) => ({
@@ -89,6 +130,7 @@ const GeminiChatWidget: React.FC = () => {
   const [inputValue, setInputValue] = React.useState('')
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [showStaticQuestions, setShowStaticQuestions] = React.useState(true)
   const prefersSmallScreen = useMediaQuery('(max-width:600px)')
 
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
@@ -103,10 +145,30 @@ const GeminiChatWidget: React.FC = () => {
     setError(null)
   }
 
+  const handleStaticQuestion = (question: string, answer: string) => {
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: question,
+    }
+
+    const assistantMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: answer,
+    }
+
+    setMessages((prev) => [...prev, userMessage, assistantMessage])
+    // Keep static questions visible so users can click multiple
+    setInputValue('')
+  }
+
   const handleSendMessage = async () => {
     if (!inputValue.trim()) {
       return
     }
+
+    setShowStaticQuestions(false)
 
     if (!apiKey) {
       setError(
@@ -243,6 +305,38 @@ const GeminiChatWidget: React.FC = () => {
               p: 2,
             }}
           >
+            {/* Static Questions - Show when dialog is open and user hasn't typed custom message */}
+            {showStaticQuestions && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  Quick Questions:
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 1,
+                  }}
+                >
+                  {STATIC_QUESTIONS.map((qa, index) => (
+                    <Chip
+                      key={index}
+                      label={qa.question}
+                      onClick={() => handleStaticQuestion(qa.question, qa.answer)}
+                      sx={{
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'primary.light',
+                          color: 'primary.contrastText',
+                        },
+                      }}
+                      size="small"
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
             <Stack spacing={2}>
               {messages.map((message) => (
                 <Box

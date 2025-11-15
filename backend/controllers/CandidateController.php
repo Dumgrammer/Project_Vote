@@ -10,6 +10,8 @@ class CandidateController extends GlobalUtil {
         $this->pdo = $dbAccess->connect();
         $this->fileUpload = new FileUpload('./uploads/candidates/');
         
+        // Ensure positions table exists first (foreign key dependency)
+        $this->createPositionsTable($this->pdo);
         // Ensure parties table exists first (foreign key dependency)
         $this->createPartiesTable($this->pdo);
         // Then ensure candidates table exists
@@ -17,7 +19,7 @@ class CandidateController extends GlobalUtil {
     }
 
     // Create a new candidate
-    public function createCandidate($election_id, $fname, $mname, $lname, $party_id, $position, $bio, $photoFile = null) {
+    public function createCandidate($election_id, $fname, $mname, $lname, $party_id, $position_id, $bio, $photoFile = null) {
         try {
             // Check if user is authenticated
             if (!$this->isAuthenticated()) {
@@ -25,14 +27,15 @@ class CandidateController extends GlobalUtil {
             }
 
             // Validate required fields
-            if (empty($election_id) || empty($fname) || empty($lname) || empty($party_id) || empty($position)) {
+            if (empty($election_id) || empty($fname) || empty($lname) || empty($party_id) || empty($position_id)) {
                 return $this->sendErrorResponse("Election ID, first name, last name, party, and position are required", 400);
             }
 
             // Verify election exists
-            $electionCheck = $this->pdo->prepare("SELECT id FROM elections WHERE id = :id");
+            $electionCheck = $this->pdo->prepare("SELECT id, election_type FROM elections WHERE id = :id");
             $electionCheck->execute(['id' => $election_id]);
-            if (!$electionCheck->fetch()) {
+            $election = $electionCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$election) {
                 return $this->sendErrorResponse("Election not found", 404);
             }
 
@@ -41,6 +44,17 @@ class CandidateController extends GlobalUtil {
             $partyCheck->execute(['id' => $party_id]);
             if (!$partyCheck->fetch()) {
                 return $this->sendErrorResponse("Party not found", 404);
+            }
+
+            // Verify position exists and matches election type
+            $positionCheck = $this->pdo->prepare("SELECT id, name, type FROM positions WHERE id = :id AND is_archived = FALSE");
+            $positionCheck->execute(['id' => $position_id]);
+            $position = $positionCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$position) {
+                return $this->sendErrorResponse("Position not found", 404);
+            }
+            if (strtolower($position['type']) !== strtolower($election['election_type'])) {
+                return $this->sendErrorResponse("Position type does not match election type", 400);
             }
 
             // Handle photo upload
@@ -54,9 +68,10 @@ class CandidateController extends GlobalUtil {
             }
 
             $created_by = $_SESSION['user_id'];
+            $positionName = $position['name']; // Store position name for backward compatibility
 
-            $sql = "INSERT INTO candidates (election_id, fname, mname, lname, party_id, position, bio, photo, created_by) 
-                    VALUES (:election_id, :fname, :mname, :lname, :party_id, :position, :bio, :photo, :created_by)";
+            $sql = "INSERT INTO candidates (election_id, fname, mname, lname, party_id, position_id, position, bio, photo, created_by) 
+                    VALUES (:election_id, :fname, :mname, :lname, :party_id, :position_id, :position, :bio, :photo, :created_by)";
             
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':election_id', $election_id);
@@ -64,7 +79,8 @@ class CandidateController extends GlobalUtil {
             $stmt->bindParam(':mname', $mname);
             $stmt->bindParam(':lname', $lname);
             $stmt->bindParam(':party_id', $party_id);
-            $stmt->bindParam(':position', $position);
+            $stmt->bindParam(':position_id', $position_id);
+            $stmt->bindParam(':position', $positionName);
             $stmt->bindParam(':bio', $bio);
             $stmt->bindParam(':photo', $photo);
             $stmt->bindParam(':created_by', $created_by);
@@ -97,11 +113,14 @@ class CandidateController extends GlobalUtil {
             $sql = "SELECT c.*, 
                            p.party_name,
                            p.party_code,
+                           pos.name as position_name,
+                           pos.allows_multiple_votes,
                            CONCAT(a.fname, ' ', a.lname) as creator_name,
                            a.email as creator_email,
                            CONCAT(c.fname, ' ', IFNULL(CONCAT(c.mname, ' '), ''), c.lname) as full_name
                     FROM candidates c
                     LEFT JOIN parties p ON c.party_id = p.id
+                    LEFT JOIN positions pos ON c.position_id = pos.id
                     LEFT JOIN admin a ON c.created_by = a.id
                     WHERE c.election_id = :election_id";
             
@@ -137,11 +156,14 @@ class CandidateController extends GlobalUtil {
             $sql = "SELECT c.*, 
                            p.party_name,
                            p.party_code,
+                           pos.name as position_name,
+                           pos.allows_multiple_votes,
                            CONCAT(a.fname, ' ', a.lname) as creator_name,
                            a.email as creator_email,
                            CONCAT(c.fname, ' ', IFNULL(CONCAT(c.mname, ' '), ''), c.lname) as full_name
                     FROM candidates c
                     LEFT JOIN parties p ON c.party_id = p.id
+                    LEFT JOIN positions pos ON c.position_id = pos.id
                     LEFT JOIN admin a ON c.created_by = a.id
                     WHERE c.id = :id";
             
@@ -163,7 +185,7 @@ class CandidateController extends GlobalUtil {
     }
 
     // Update candidate
-    public function updateCandidate($id, $fname, $mname, $lname, $party_id, $position, $bio, $photoFile = null) {
+    public function updateCandidate($id, $fname, $mname, $lname, $party_id, $position_id, $bio, $photoFile = null) {
         try {
             if (!$this->isAuthenticated()) {
                 return $this->sendErrorResponse("Unauthorized: Please login", 401);
@@ -175,11 +197,30 @@ class CandidateController extends GlobalUtil {
                 return $existingCandidate;
             }
 
+            // Get election to verify position type match
+            $electionCheck = $this->pdo->prepare("SELECT e.id as election_id, e.election_type FROM candidates c JOIN elections e ON c.election_id = e.id WHERE c.id = :id");
+            $electionCheck->execute(['id' => $id]);
+            $electionData = $electionCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$electionData) {
+                return $this->sendErrorResponse("Election not found for this candidate", 404);
+            }
+
             // Verify party exists
             $partyCheck = $this->pdo->prepare("SELECT id FROM parties WHERE id = :id");
             $partyCheck->execute(['id' => $party_id]);
             if (!$partyCheck->fetch()) {
                 return $this->sendErrorResponse("Party not found", 404);
+            }
+
+            // Verify position exists and matches election type
+            $positionCheck = $this->pdo->prepare("SELECT id, name, type FROM positions WHERE id = :id AND is_archived = FALSE");
+            $positionCheck->execute(['id' => $position_id]);
+            $position = $positionCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$position) {
+                return $this->sendErrorResponse("Position not found", 404);
+            }
+            if (strtolower($position['type']) !== strtolower($electionData['election_type'])) {
+                return $this->sendErrorResponse("Position type does not match election type", 400);
             }
 
             // Handle photo upload
@@ -198,11 +239,14 @@ class CandidateController extends GlobalUtil {
                 $photo = $uploadResult['filename'];
             }
 
+            $positionName = $position['name']; // Store position name for backward compatibility
+
             $sql = "UPDATE candidates SET 
                     fname = :fname,
                     mname = :mname,
                     lname = :lname,
                     party_id = :party_id,
+                    position_id = :position_id,
                     position = :position,
                     bio = :bio,
                     photo = :photo
@@ -214,7 +258,8 @@ class CandidateController extends GlobalUtil {
             $stmt->bindParam(':mname', $mname);
             $stmt->bindParam(':lname', $lname);
             $stmt->bindParam(':party_id', $party_id);
-            $stmt->bindParam(':position', $position);
+            $stmt->bindParam(':position_id', $position_id);
+            $stmt->bindParam(':position', $positionName);
             $stmt->bindParam(':bio', $bio);
             $stmt->bindParam(':photo', $photo);
             
@@ -321,11 +366,15 @@ class CandidateController extends GlobalUtil {
                         c.photo,
                         CONCAT(c.fname, ' ', IFNULL(CONCAT(c.mname, ' '), ''), c.lname) as full_name,
                         c.position,
+                        c.position_id,
+                        pos.name as position_name,
+                        pos.allows_multiple_votes,
                         c.bio,
                         p.party_name,
                         p.party_code
                     FROM candidates c
                     LEFT JOIN parties p ON c.party_id = p.id
+                    LEFT JOIN positions pos ON c.position_id = pos.id
                     WHERE c.election_id = ? AND c.is_archived = FALSE
                     ORDER BY c.position, c.lname";
             
@@ -333,10 +382,12 @@ class CandidateController extends GlobalUtil {
             $stmt->execute([$electionId]);
             $candidates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Add photo URLs
+            // Add photo URLs and normalize boolean fields
             foreach ($candidates as &$candidate) {
                 $candidate['photo_url'] = $candidate['photo'] ? $this->fileUpload->getFileUrl($candidate['photo']) : null;
                 unset($candidate['photo']);
+                // Ensure allows_multiple_votes is a boolean
+                $candidate['allows_multiple_votes'] = (bool) $candidate['allows_multiple_votes'];
             }
 
             return $this->sendResponse([

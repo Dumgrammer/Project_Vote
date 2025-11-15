@@ -36,6 +36,7 @@
     require_once('./controllers/ElectionController.php');
     require_once('./controllers/CandidateController.php');
     require_once('./controllers/PartyController.php');
+    require_once('./controllers/PositionController.php');
     require_once('./controllers/VoterController.php');
     require_once('./controllers/VoterAuthController.php');
     require_once('./controllers/ResultsController.php');
@@ -49,6 +50,7 @@
     $electionController = new ElectionController($con);
     $candidateController = new CandidateController($con);
     $partyController = new PartyController($con);
+    $positionController = new PositionController($con);
     $voterController = new VoterController($pdo);
     $voterAuthController = new VoterAuthController($pdo);
     $resultsController = new ResultsController($pdo);
@@ -147,18 +149,18 @@
                     $mname = $_POST['mname'] ?? '';
                     $lname = $_POST['lname'] ?? null;
                     $party_id = $_POST['party_id'] ?? null;
-                    $position = $_POST['position'] ?? null;
+                    $position_id = $_POST['position_id'] ?? null;
                     $bio = $_POST['bio'] ?? '';
                     $photoFile = $_FILES['photo'] ?? null;
                     
-                    if ($election_id && $fname && $lname && $party_id && $position) {
+                    if ($election_id && $fname && $lname && $party_id && $position_id) {
                         $response = $candidateController->createCandidate(
                             $election_id,
                             $fname,
                             $mname,
                             $lname,
                             $party_id,
-                            $position,
+                            $position_id,
                             $bio,
                             $photoFile
                         );
@@ -166,6 +168,22 @@
                         http_response_code($response['statusCode']);
                     } else {
                         echo json_encode(["error" => "Election ID, first name, last name, party, and position are required"]);
+                        http_response_code(400);
+                    }
+                    break;
+                
+                case 'position':
+                    if (isset($data->name) && isset($data->type)) {
+                        $allows_multiple_votes = $data->allows_multiple_votes ?? false;
+                        $response = $positionController->createPosition(
+                            $data->name,
+                            $allows_multiple_votes,
+                            $data->type
+                        );
+                        echo json_encode($response);
+                        http_response_code($response['statusCode']);
+                    } else {
+                        echo json_encode(["error" => "Position name and type are required"]);
                         http_response_code(400);
                     }
                     break;
@@ -365,6 +383,25 @@
                     http_response_code($response['statusCode']);
                     break;
                 
+                case 'positions':
+                    $includeArchived = isset($_GET['archived']) && $_GET['archived'] === 'true';
+                    $type = $_GET['type'] ?? null;
+                    $response = $positionController->getAllPositions($includeArchived, $type);
+                    echo json_encode($response);
+                    http_response_code($response['statusCode']);
+                    break;
+                
+                case 'position':
+                    if (isset($request[1])) {
+                        $response = $positionController->getPositionById($request[1]);
+                        echo json_encode($response);
+                        http_response_code($response['statusCode']);
+                    } else {
+                        echo json_encode(["error" => "Position ID is required"]);
+                        http_response_code(400);
+                    }
+                    break;
+                
                 case 'party':
                     if (isset($request[1])) {
                         $response = $partyController->getPartyById($request[1]);
@@ -505,18 +542,18 @@
                         $mname = $_POST['mname'] ?? '';
                         $lname = $_POST['lname'] ?? null;
                         $party_id = $_POST['party_id'] ?? null;
-                        $position = $_POST['position'] ?? null;
+                        $position_id = $_POST['position_id'] ?? null;
                         $bio = $_POST['bio'] ?? '';
                         $photoFile = $_FILES['photo'] ?? null;
                         
-                        if ($fname && $lname && $party_id && $position) {
+                        if ($fname && $lname && $party_id && $position_id) {
                             $response = $candidateController->updateCandidate(
                                 $request[1],
                                 $fname,
                                 $mname,
                                 $lname,
                                 $party_id,
-                                $position,
+                                $position_id,
                                 $bio,
                                 $photoFile
                             );
@@ -528,6 +565,28 @@
                         }
                     } else {
                         echo json_encode(["error" => "Candidate ID is required"]);
+                        http_response_code(400);
+                    }
+                    break;
+                
+                case 'position':
+                    if (isset($request[1])) {
+                        if (isset($data->name) && isset($data->type)) {
+                            $allows_multiple_votes = $data->allows_multiple_votes ?? false;
+                            $response = $positionController->updatePosition(
+                                $request[1],
+                                $data->name,
+                                $allows_multiple_votes,
+                                $data->type
+                            );
+                            echo json_encode($response);
+                            http_response_code($response['statusCode']);
+                        } else {
+                            echo json_encode(["error" => "Position name and type are required"]);
+                            http_response_code(400);
+                        }
+                    } else {
+                        echo json_encode(["error" => "Position ID is required"]);
                         http_response_code(400);
                     }
                     break;
@@ -619,6 +678,21 @@
                         http_response_code($response['statusCode']);
                     } else {
                         echo json_encode(["error" => "Party ID is required"]);
+                        http_response_code(400);
+                    }
+                    break;
+                
+                case 'position':
+                    if (isset($request[1])) {
+                        if (isset($request[2]) && $request[2] === 'archive') {
+                            $response = $positionController->archivePosition($request[1]);
+                        } else {
+                            $response = $positionController->deletePosition($request[1]);
+                        }
+                        echo json_encode($response);
+                        http_response_code($response['statusCode']);
+                    } else {
+                        echo json_encode(["error" => "Position ID is required"]);
                         http_response_code(400);
                     }
                     break;

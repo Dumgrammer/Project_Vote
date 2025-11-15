@@ -13,7 +13,10 @@ export interface Candidate {
   party_id: number
   party_name?: string
   party_code?: string
+  position_id?: number
   position: string
+  position_name?: string
+  allows_multiple_votes?: boolean
   bio: string
   created_by: number
   creator_name?: string
@@ -29,7 +32,7 @@ export interface CreateCandidateData {
   mname?: string
   lname: string
   party_id: number
-  position: string
+  position_id: number
   bio: string
   photo?: File | null
 }
@@ -85,7 +88,7 @@ export const useCreateCandidate = () => {
       formData.append('mname', data.mname || '')
       formData.append('lname', data.lname)
       formData.append('party_id', data.party_id.toString())
-      formData.append('position', data.position)
+      formData.append('position_id', data.position_id.toString())
       formData.append('bio', data.bio)
       
       if (data.photo) {
@@ -122,7 +125,7 @@ export const useUpdateCandidate = () => {
       formData.append('mname', data.mname || '')
       formData.append('lname', data.lname)
       formData.append('party_id', data.party_id.toString())
-      formData.append('position', data.position)
+      formData.append('position_id', data.position_id.toString())
       formData.append('bio', data.bio)
       
       if (data.photo) {

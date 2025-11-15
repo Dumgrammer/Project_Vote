@@ -18,8 +18,10 @@ export const candidateSchema = z.object({
     invalid_type_error: 'Party is required',
   }).min(1, 'Please select a party'),
   
-  position: z.string()
-    .min(1, 'Position is required'),
+  position_id: z.number({
+    required_error: 'Position is required',
+    invalid_type_error: 'Position is required',
+  }).min(1, 'Please select a position'),
   
   bio: z.string()
     .min(10, 'Bio must be at least 10 characters')

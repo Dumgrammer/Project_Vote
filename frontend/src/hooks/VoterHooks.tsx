@@ -109,20 +109,16 @@ export const useCreateVoter = () => {
       formData.append('contact_number', data.contact_number || '')
       formData.append('password', data.password)
       
+      // Always append sex and voter_type (required fields)
+      formData.append('sex', data.sex || 'male')
+      formData.append('voter_type', data.voter_type || 'school')
+      
       if (data.v_image) {
         formData.append('v_image', data.v_image)
       }
       
       if (data.is_verified !== undefined) {
         formData.append('is_verified', data.is_verified.toString())
-      }
-      
-      if (data.sex) {
-        formData.append('sex', data.sex)
-      }
-
-      if (data.voter_type) {
-        formData.append('voter_type', data.voter_type)
       }
 
       if (data.is_archived !== undefined) {

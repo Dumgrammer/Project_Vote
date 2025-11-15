@@ -108,6 +108,7 @@ class GlobalUtil{
                 mname VARCHAR(255) DEFAULT '',
                 lname VARCHAR(255) NOT NULL,
                 party_id INT DEFAULT NULL,
+                position_id INT DEFAULT NULL,
                 position VARCHAR(255) NOT NULL,
                 bio TEXT,
                 created_by INT NOT NULL,
@@ -116,17 +117,61 @@ class GlobalUtil{
                 is_archived BOOLEAN DEFAULT FALSE,
                 FOREIGN KEY (election_id) REFERENCES elections(id) ON DELETE CASCADE,
                 FOREIGN KEY (party_id) REFERENCES parties(id) ON DELETE SET NULL,
+                FOREIGN KEY (position_id) REFERENCES positions(id) ON DELETE SET NULL,
                 FOREIGN KEY (created_by) REFERENCES admin(id) ON DELETE CASCADE,
                 INDEX idx_election_id (election_id),
                 INDEX idx_party_id (party_id),
+                INDEX idx_position_id (position_id),
                 INDEX idx_created_by (created_by),
                 INDEX idx_is_archived (is_archived)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
             
             $pdo->exec($sql);
+            
+            // Add position_id column if it doesn't exist (for existing databases)
+            try {
+                $checkColumn = $pdo->query("SHOW COLUMNS FROM candidates LIKE 'position_id'");
+                if ($checkColumn->rowCount() == 0) {
+                    $pdo->exec("ALTER TABLE candidates ADD COLUMN position_id INT DEFAULT NULL AFTER party_id");
+                    $pdo->exec("ALTER TABLE candidates ADD FOREIGN KEY (position_id) REFERENCES positions(id) ON DELETE SET NULL");
+                    $pdo->exec("ALTER TABLE candidates ADD INDEX idx_position_id (position_id)");
+                }
+            } catch (\Exception $e) {
+                // Column might already exist or positions table doesn't exist yet
+                error_log("Note: Could not add position_id column: " . $e->getMessage());
+            }
+            
             return true;
         } catch (\Exception $e) {
             error_log("Failed to create candidates table: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Create positions table if it doesn't exist
+    public function createPositionsTable($pdo) {
+        try {
+            $sql = "CREATE TABLE IF NOT EXISTS positions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                allows_multiple_votes BOOLEAN DEFAULT FALSE,
+                type ENUM('school', 'corporate', 'barangay') NOT NULL DEFAULT 'school',
+                created_by INT NOT NULL,
+                created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                is_archived BOOLEAN DEFAULT FALSE,
+                FOREIGN KEY (created_by) REFERENCES admin(id) ON DELETE CASCADE,
+                INDEX idx_name (name),
+                INDEX idx_type (type),
+                INDEX idx_created_by (created_by),
+                INDEX idx_is_archived (is_archived),
+                UNIQUE KEY unique_name_type (name, type)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+            
+            $pdo->exec($sql);
+            return true;
+        } catch (\Exception $e) {
+            error_log("Failed to create positions table: " . $e->getMessage());
             return false;
         }
     }

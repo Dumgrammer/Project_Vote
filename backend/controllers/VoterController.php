@@ -230,6 +230,10 @@ class VoterController extends GlobalUtil {
 
             // Note: voters_id cannot be changed once created
 
+            // Define allowed values for validation
+            $allowedSex = ['male', 'female', 'other'];
+            $allowedTypes = ['school', 'corporate', 'barangay'];
+
             // Handle image upload
             $imagePath = $existingVoter['v_image'];
             if (isset($files['v_image']) && isset($files['v_image']['tmp_name']) && !empty($files['v_image']['tmp_name'])) {
@@ -504,6 +508,8 @@ class VoterController extends GlobalUtil {
 
             // Validate all candidates before saving
             $validatedVotes = [];
+            $votesByPosition = []; // Track votes per position to validate multiple votes
+            
             foreach ($votes as $vote) {
                 if (!isset($vote['candidate_id']) || !isset($vote['position'])) {
                     $this->pdo->rollBack();
@@ -514,8 +520,13 @@ class VoterController extends GlobalUtil {
                 $candidateId = $vote['candidate_id'];
                 $position = $vote['position'];
 
-                // Verify candidate exists and belongs to this election
-                $candidateStmt = $this->pdo->prepare("SELECT id, position FROM candidates WHERE id = ? AND election_id = ? AND is_archived = FALSE");
+                // Verify candidate exists and belongs to this election, and get position info
+                $candidateStmt = $this->pdo->prepare("
+                    SELECT c.id, c.position, c.position_id, pos.allows_multiple_votes 
+                    FROM candidates c
+                    LEFT JOIN positions pos ON c.position_id = pos.id
+                    WHERE c.id = ? AND c.election_id = ? AND c.is_archived = FALSE
+                ");
                 $candidateStmt->execute([$candidateId, $electionId]);
                 $candidate = $candidateStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -531,10 +542,28 @@ class VoterController extends GlobalUtil {
                     return $this->sendErrorResponse("Candidate position mismatch", 400);
                 }
 
+                // Track votes by position
+                if (!isset($votesByPosition[$position])) {
+                    $votesByPosition[$position] = [
+                        'allows_multiple' => (bool) $candidate['allows_multiple_votes'],
+                        'count' => 0
+                    ];
+                }
+                $votesByPosition[$position]['count']++;
+
                 $validatedVotes[] = [
                     'candidate_id' => $candidateId,
                     'position' => $position
                 ];
+            }
+
+            // Validate that multiple votes per position are only allowed when the position allows it
+            foreach ($votesByPosition as $position => $info) {
+                if ($info['count'] > 1 && !$info['allows_multiple']) {
+                    $this->pdo->rollBack();
+                    error_log("Multiple votes not allowed for position: " . $position);
+                    return $this->sendErrorResponse("Multiple votes are not allowed for position: " . $position, 400);
+                }
             }
 
             // Convert votes array to JSON
