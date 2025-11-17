@@ -8,7 +8,7 @@
     ob_start();
     
     // Allow requests from specific origin (required for credentials)
-    header('Access-Control-Allow-Origin: http://localhost:5173');
+    header('Access-Control-Allow-Origin: https://project-vote-qe9k.vercel.app');
     header('Access-Control-Allow-Credentials: true');
     
     // Allow specific HTTP methods
