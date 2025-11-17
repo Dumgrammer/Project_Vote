@@ -1,8 +1,4 @@
-import axios from 'axios'
-
-const API_URL = 'http://localhost/Project_Vote/backend'
-
-axios.defaults.withCredentials = true
+import axiosInstance, { buildApiUrl } from '../config/axios'
 
 export interface VoterUser {
   id: number
@@ -54,7 +50,7 @@ export interface Election {
 
 export const voterAuthService = {
   login: async (email: string, password: string): Promise<VoterUser> => {
-    const response = await axios.post(`${API_URL}/?request=voter-login`, {
+    const response = await axiosInstance.post(buildApiUrl('/?request=voter-login'), {
       email,
       password,
     })
@@ -62,12 +58,12 @@ export const voterAuthService = {
   },
 
   logout: async (): Promise<void> => {
-    await axios.post(`${API_URL}/?request=voter-logout`)
+    await axiosInstance.post(buildApiUrl('/?request=voter-logout'))
   },
 
   checkSession: async (): Promise<VoterSessionResponse> => {
     try {
-      const response = await axios.get(`${API_URL}/?request=voter-session`)
+      const response = await axiosInstance.get(buildApiUrl('/?request=voter-session'))
       // Ensure we always return a valid response
       if (response.data && response.data.data) {
         return response.data.data
@@ -81,7 +77,7 @@ export const voterAuthService = {
   },
 
   getProfile: async (): Promise<VoterProfile> => {
-    const response = await axios.get(`${API_URL}/?request=voter-profile`)
+    const response = await axiosInstance.get(buildApiUrl('/?request=voter-profile'))
     // If data is undefined, throw an error instead of returning undefined
     if (!response.data?.data) {
       throw new Error('Profile not found')
@@ -90,7 +86,7 @@ export const voterAuthService = {
   },
 
   updateProfile: async (formData: FormData): Promise<void> => {
-    await axios.post(`${API_URL}/?request=voter-profile`, formData, {
+    await axiosInstance.post(buildApiUrl('/?request=voter-profile'), formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -98,7 +94,7 @@ export const voterAuthService = {
   },
 
   getElections: async (): Promise<Election[]> => {
-    const response = await axios.get(`${API_URL}/?request=voter-elections`)
+    const response = await axiosInstance.get(buildApiUrl('/?request=voter-elections'))
     // Ensure we always return an array
     return response.data?.data || []
   },

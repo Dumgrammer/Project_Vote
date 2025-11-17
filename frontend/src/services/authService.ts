@@ -49,7 +49,7 @@ export interface SessionResponse {
 export const authService = {
   // Login
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await axiosInstance.post('/login', {
+    const response = await axiosInstance.post('login', {
       email: credentials.email,
       password: credentials.password,
     });
@@ -58,20 +58,20 @@ export const authService = {
 
   // Register
   register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await axiosInstance.post('/register', data);
+    const response = await axiosInstance.post('register', data);
     return response.data;
   },
 
   // Logout
   logout: async (): Promise<{ status: string; message: string }> => {
-    const response = await axiosInstance.post('/logout');
+    const response = await axiosInstance.post('logout');
     return response.data;
   },
 
   // Check session
   checkSession: async (): Promise<SessionResponse> => {
     try {
-      const response = await axiosInstance.get('/session');
+      const response = await axiosInstance.get('session');
       // Ensure we always return a valid response
       if (response.data) {
         return response.data;
@@ -95,7 +95,7 @@ export const authService = {
   // Check auth (alternative endpoint)
   checkAuth: async (): Promise<SessionResponse> => {
     try {
-      const response = await axiosInstance.get('/check-auth');
+      const response = await axiosInstance.get('check-auth');
       // Ensure we always return a valid response
       if (response.data) {
         return response.data;

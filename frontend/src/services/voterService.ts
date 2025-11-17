@@ -1,9 +1,5 @@
-import axios from 'axios'
+import axiosInstance, { buildApiUrl } from '../config/axios'
 import type { Voter } from '../hooks/VoterHooks'
-
-const API_URL = 'http://localhost/Project_Vote/backend'
-
-axios.defaults.withCredentials = true
 
 export interface CreateVoterResponse {
   id: number
@@ -13,15 +9,15 @@ export interface CreateVoterResponse {
 
 export const voterService = {
   getAllVoters: async (includeArchived: boolean = false): Promise<Voter[]> => {
-    const response = await axios.get(
-      `${API_URL}/?request=voters${includeArchived ? '&archived=true' : ''}`
+    const response = await axiosInstance.get(
+      buildApiUrl(`/?request=voters${includeArchived ? '&archived=true' : ''}`)
     )
     // Ensure we always return an array
     return response.data?.data || []
   },
 
   getVoterById: async (id: number): Promise<Voter> => {
-    const response = await axios.get(`${API_URL}/?request=voter/${id}`)
+    const response = await axiosInstance.get(buildApiUrl(`/?request=voter/${id}`))
     // If data is undefined, throw an error instead of returning undefined
     if (!response.data?.data) {
       throw new Error('Voter not found')
@@ -30,7 +26,7 @@ export const voterService = {
   },
 
   createVoter: async (formData: FormData): Promise<CreateVoterResponse> => {
-    const response = await axios.post(`${API_URL}/?request=voter`, formData, {
+    const response = await axiosInstance.post(buildApiUrl('/?request=voter'), formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -39,7 +35,7 @@ export const voterService = {
   },
 
   updateVoter: async (id: number, formData: FormData): Promise<void> => {
-    await axios.post(`${API_URL}/?request=voter/${id}`, formData, {
+    await axiosInstance.post(buildApiUrl(`/?request=voter/${id}`), formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
         'X-HTTP-Method-Override': 'PUT',
@@ -48,11 +44,11 @@ export const voterService = {
   },
 
   archiveVoter: async (id: number): Promise<void> => {
-    await axios.delete(`${API_URL}/?request=voter/${id}/archive`)
+    await axiosInstance.delete(buildApiUrl(`/?request=voter/${id}/archive`))
   },
 
   deleteVoter: async (id: number): Promise<void> => {
-    await axios.delete(`${API_URL}/?request=voter/${id}`)
+    await axiosInstance.delete(buildApiUrl(`/?request=voter/${id}`))
   },
 }
 
