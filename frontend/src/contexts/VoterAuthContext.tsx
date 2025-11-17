@@ -6,7 +6,6 @@ interface VoterAuthContextType {
   voter: VoterUser | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (voter: VoterUser) => void
   logout: () => void
 }
 
@@ -20,10 +19,6 @@ export const VoterAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
   const voter = (sessionData?.logged_in && sessionData?.voter) ? sessionData.voter : null
   const isAuthenticated = !!voter
 
-  const login = (voterData: VoterUser) => {
-    // Session is managed by backend, just trigger a refetch
-    // This will be handled by react-query after successful login
-  }
 
   const logout = async () => {
     try {
@@ -42,7 +37,6 @@ export const VoterAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
         voter,
         isAuthenticated,
         isLoading,
-        login,
         logout,
       }}
     >
