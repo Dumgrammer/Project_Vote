@@ -287,7 +287,7 @@ class ElectionController extends GlobalUtil {
             $sql = "DELETE FROM elections WHERE id = :id";
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':id', $id);
-            
+                
             if ($stmt->execute()) {
                 if ($stmt->rowCount() > 0) {
                     // Delete image file if exists

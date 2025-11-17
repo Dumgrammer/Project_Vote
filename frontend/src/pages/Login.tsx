@@ -14,7 +14,8 @@
   import CircularProgress from '@mui/material/CircularProgress'
   import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
   import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
-  import AuthLayout from '../layouts/AuthLayout'
+import AuthLayout from '../layouts/AuthLayout'
+import { API_BASE_URL } from '../config/axios'
   import StatusModal from '../components/StatusModal'
   import { useForm, Controller } from 'react-hook-form'
   import { zodResolver } from '@hookform/resolvers/zod'
@@ -38,7 +39,7 @@
   type LoginFormData = z.infer<typeof loginSchema>
 
   export default function Login() {
-    const [modalState, setModalState] = React.useState<{
+  const [modalState, setModalState] = React.useState<{
       open: boolean
       type: 'success' | 'error'
       title: string
@@ -51,7 +52,15 @@
     })
     const { isAuthenticated, isLoading } = useAuth()
     
-    const { mutate: login, isPending } = useLogin()
+  const { mutate: login, isPending } = useLogin()
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('VITE_API_BASE_URL:', import.meta.env?.VITE_API_BASE_URL)
+      console.log('API_BASE_URL (resolved):', API_BASE_URL)
+      console.log('window.__APP_API_BASE_URL__:', window.__APP_API_BASE_URL__)
+    }
+  }, [])
 
     // Show loading while checking session
     if (isLoading) {
