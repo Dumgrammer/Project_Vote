@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import api from '../config/axios'
+import api, { buildApiUrl } from '../config/axios'
 
 export interface Election {
   id: number
@@ -42,7 +42,8 @@ export const useGetElections = (includeArchived = false) => {
   return useQuery({
     queryKey: electionKeys.list(includeArchived),
     queryFn: async () => {
-      const response = await api.get(`/elections${includeArchived ? '?archived=true' : ''}`)
+      const url = buildApiUrl(`/?request=elections${includeArchived ? '&archived=true' : ''}`)
+      const response = await api.get(url)
       if (response.data.status === 'success') {
         return response.data.data as Election[]
       }
@@ -56,7 +57,8 @@ export const useGetElection = (id: number, enabled = true) => {
   return useQuery({
     queryKey: electionKeys.detail(id),
     queryFn: async () => {
-      const response = await api.get(`/election/${id}`)
+      const url = buildApiUrl(`/?request=election/${id}`)
+      const response = await api.get(url)
       if (response.data.status === 'success') {
         return response.data.data as Election
       }
@@ -83,7 +85,7 @@ export const useCreateElection = () => {
         formData.append('img', data.img)
       }
       
-      const response = await api.post('/election', formData, {
+      const response = await api.post(buildApiUrl('/?request=election'), formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -107,7 +109,7 @@ export const useUpdateElection = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: CreateElectionData }) => {
-      const response = await api.put(`/election/${id}`, data)
+      const response = await api.put(buildApiUrl(`/?request=election/${id}`), data)
       if (response.data.status === 'success') {
         return response.data.data
       }
@@ -127,7 +129,9 @@ export const useDeleteElection = () => {
   
   return useMutation({
     mutationFn: async ({ id, archive = false }: { id: number; archive?: boolean }) => {
-      const url = archive ? `/election/${id}/archive` : `/election/${id}`
+      const url = archive
+        ? buildApiUrl(`/?request=election/${id}/archive`)
+        : buildApiUrl(`/?request=election/${id}`)
       const response = await api.delete(url)
       if (response.data.status === 'success') {
         return true

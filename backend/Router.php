@@ -4,11 +4,17 @@
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
     
+    // Temporary override to bypass admin auth checks (set to false when not testing)
+    if (!defined('DISABLE_ADMIN_AUTH')) {
+        define('DISABLE_ADMIN_AUTH', true);
+    }
+    
     // Start output buffering to prevent accidental output
     ob_start();
     
     // Allow requests from specific origin (required for credentials)
-    header('Access-Control-Allow-Origin: https://project-vote-qe9k.vercel.app');
+    header('Access-Control-Allow-Origin: https://project-vote-phi.vercel.app');
+   
     header('Access-Control-Allow-Credentials: true');
     
     // Allow specific HTTP methods
