@@ -23,10 +23,10 @@ export const voterSchema = z.object({
     .max(20, 'Contact number must be at most 20 characters')
     .optional(),
   sex: z.enum(['male', 'female', 'other'], {
-    errorMap: () => ({ message: 'Please select a valid sex option' }),
+    error: 'Sex is required'
   }),
   voter_type: z.enum(['school', 'corporate', 'barangay'], {
-    errorMap: () => ({ message: 'Please select a valid voter type' }),
+    error: 'Voter type is required'
   }),
   password: z
     .string()

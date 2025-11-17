@@ -10,7 +10,7 @@ export const electionSchema = z.object({
     .max(1000, 'Description must not exceed 1000 characters'),
   
   election_type: z.enum(['school', 'corporate', 'barangay'], {
-    errorMap: () => ({ message: 'Please select a valid election type' }),
+    error: 'Election type is required'
   }),
   
   startDate: z.string()

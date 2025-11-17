@@ -14,13 +14,11 @@ export const candidateSchema = z.object({
     .max(255, 'Last name must not exceed 255 characters'),
   
   party_id: z.number({
-    required_error: 'Party is required',
-    invalid_type_error: 'Party is required',
+    error: 'Party is required'
   }).min(1, 'Please select a party'),
   
   position_id: z.number({
-    required_error: 'Position is required',
-    invalid_type_error: 'Position is required',
+    error: 'Position is required'
   }).min(1, 'Please select a position'),
   
   bio: z.string()
