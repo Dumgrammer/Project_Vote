@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react'
+import React, { createContext, useContext, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useVoterSession, useVoterLogout, type VoterUser } from '../hooks/VoterAuthHooks'
 
@@ -12,7 +12,7 @@ interface VoterAuthContextType {
 
 const VoterAuthContext = createContext<VoterAuthContextType | undefined>(undefined)
 
-export const VoterAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const VoterAuthProvider: React.FC<{ children: ReactNode }> = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate()
   const { data: sessionData, isLoading } = useVoterSession()
   const logoutMutation = useVoterLogout()

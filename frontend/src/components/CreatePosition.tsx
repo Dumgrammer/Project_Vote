@@ -13,7 +13,7 @@ import Checkbox from '@mui/material/Checkbox'
 import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
 import CloseIcon from '@mui/icons-material/Close'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { positionSchema, type PositionFormData } from '../schemas/positionSchema'
 import { useCreatePosition, useUpdatePosition, type Position } from '../hooks/PositionHooks'
@@ -47,12 +47,12 @@ export default function CreatePosition({
     reset,
     formState: { errors },
   } = useForm<PositionFormData>({
-    resolver: zodResolver(positionSchema),
+    resolver: zodResolver(positionSchema) as Resolver<PositionFormData>,
     defaultValues: {
       name: initialData?.name || '',
-      type: initialData?.type || electionType || 'school',
+      type: initialData?.type as 'school' | 'corporate' | 'barangay' || electionType || 'school',
       allows_multiple_votes: initialData?.allows_multiple_votes || false,
-    },
+    } as PositionFormData,
   })
 
   // Update form when initialData or electionType changes

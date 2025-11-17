@@ -12,7 +12,7 @@ import {
   Avatar,
   IconButton,
 } from '@mui/material'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
@@ -62,7 +62,7 @@ const VoterProfile = () => {
     reset,
     formState: { errors },
   } = useForm<VoterProfileFormData>({
-    resolver: zodResolver(voterProfileSchema),
+    resolver: zodResolver(voterProfileSchema) as Resolver<VoterProfileFormData>,
     defaultValues: {
       fname: '',
       mname: '',

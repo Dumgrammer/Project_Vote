@@ -17,7 +17,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import MenuItem from '@mui/material/MenuItem'
 import AuthLayout from '../layouts/AuthLayout'
 import StatusModal from '../components/StatusModal'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useCreateVoter } from '../hooks/VoterHooks'
@@ -45,10 +45,10 @@ const voterRegisterSchema = z.object({
     .max(20, 'Contact number must be at most 20 characters')
     .optional(),
   sex: z.enum(['male', 'female', 'other'], {
-    errorMap: () => ({ message: 'Please select your sex' }),
+    error: 'Sex is required'
   }),
   voter_type: z.enum(['school', 'corporate', 'barangay'], {
-    errorMap: () => ({ message: 'Please select a voter type' }),
+    error: 'Voter type is required'
   }),
   password: z
     .string()
@@ -87,7 +87,7 @@ export default function VoterRegister() {
     handleSubmit,
     formState: { errors },
   } = useForm<VoterRegisterFormData>({
-    resolver: zodResolver(voterRegisterSchema),
+    resolver: zodResolver(voterRegisterSchema) as Resolver<VoterRegisterFormData>,
     defaultValues: {
       fname: '',
       mname: '',
