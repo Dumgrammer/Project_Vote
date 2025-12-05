@@ -1,0 +1,8 @@
+# Backup - Simple version if the main one doesn't work
+# Rename this to .htaccess if you need a simpler version
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ Router.php?request=$1 [L,QSA]
+</IfModule>
+

@@ -1,20 +1,46 @@
 <?php
 
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
-    error_reporting(E_ALL);
+    // Production vs Development settings
+    $isProduction = !in_array($_SERVER['HTTP_HOST'], ['localhost', '127.0.0.1']) && strpos($_SERVER['HTTP_HOST'], 'localhost') === false;
     
-    // Temporary override to bypass admin auth checks (set to false when not testing)
+    if ($isProduction) {
+        // Production: Disable error display
+        ini_set('display_errors', 0);
+        ini_set('display_startup_errors', 0);
+        error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
+    } else {
+        // Development: Show errors
+        ini_set('display_errors', 1);
+        ini_set('display_startup_errors', 1);
+        error_reporting(E_ALL);
+    }
+    
+    // Security: Disable auth bypass in production
     if (!defined('DISABLE_ADMIN_AUTH')) {
-        define('DISABLE_ADMIN_AUTH', true);
+        define('DISABLE_ADMIN_AUTH', !$isProduction);
     }
     
     // Start output buffering to prevent accidental output
     ob_start();
     
-    // Allow requests from specific origin (required for credentials)
-    //header('Access-Control-Allow-Origin: https://project-vote-phi.vercel.app');
-    header('Access-Control-Allow-Origin: http://localhost:5173');
+    // CORS Configuration - Update with your production frontend URL
+    $allowedOrigins = [
+        'http://localhost:5173',
+        'https://project-vote-phi.vercel.app',
+        // Add your Hostinger frontend domain here:
+        'https://darkred-magpie-601133.hostingersite.com',
+        // Add your custom domain if you have one:
+        // 'https://yourdomain.com',
+        // 'https://www.yourdomain.com',
+    ];
+    
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if (in_array($origin, $allowedOrigins)) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+    } else {
+        // Fallback: Allow the first allowed origin or use * for development only
+        header('Access-Control-Allow-Origin: ' . ($isProduction ? $allowedOrigins[1] ?? $allowedOrigins[0] : '*'));
+    }
    
     header('Access-Control-Allow-Credentials: true');
     

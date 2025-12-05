@@ -1,6 +1,28 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteCond ${REQUEST_FILENAME} !-d
-    RewriteCond ${REQUEST_FILENAME} !-f
+    
+    # Don't rewrite if file exists
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+    
+    # Don't rewrite if directory exists
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # Allow direct access to Router.php
+    RewriteCond %{REQUEST_URI} Router\.php$
+    RewriteRule ^ - [L]
+    
+    # Allow access to uploads folder
+    RewriteCond %{REQUEST_URI} uploads/
+    RewriteRule ^ - [L]
+    
+    # Redirect all other requests to Router.php
     RewriteRule ^(.*)$ Router.php?request=$1 [L,QSA]
 </IfModule>
+
+# Prevent directory listing
+Options -Indexes
+
+# Set default file
+DirectoryIndex Router.php index.php index.html
