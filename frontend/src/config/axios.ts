@@ -6,7 +6,7 @@ declare global {
   }
 }
 
-// FORCE PRODUCTION URL - NO LOCALHOST
+// FORCE PRODUCTION URL - NO LOCALHOST IN PRODUCTION BUILDS
 const resolveBaseUrl = () => {
   // Environment variable override (highest priority - for Vercel)
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) {
@@ -18,22 +18,22 @@ const resolveBaseUrl = () => {
     return window.__APP_API_BASE_URL__
   }
 
-  // Check hostname - if NOT localhost, use production
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
-    const isLocalhost = hostname === 'localhost' || 
-                       hostname === '127.0.0.1' || 
-                       hostname.includes('localhost')
-    
-    if (!isLocalhost) {
-      // PRODUCTION - ALWAYS USE HOSTINGER
-      return 'https://darkred-magpie-601133.hostingersite.com/backend'
-    }
+  // Vite production mode check (MOST RELIABLE)
+  if (import.meta.env?.PROD || import.meta.env?.MODE === 'production') {
+    return 'https://darkred-magpie-601133.hostingersite.com/backend'
   }
 
-  // Vite production mode check
-  if (import.meta.env?.PROD) {
-    return 'https://darkred-magpie-601133.hostingersite.com/backend'
+  // Runtime hostname check (fallback)
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname.toLowerCase()
+    const isLocalhost = hostname === 'localhost' || 
+                       hostname === '127.0.0.1' || 
+                       hostname.startsWith('localhost')
+    
+    // If NOT localhost, it's production
+    if (!isLocalhost) {
+      return 'https://darkred-magpie-601133.hostingersite.com/backend'
+    }
   }
 
   // Development only - localhost
