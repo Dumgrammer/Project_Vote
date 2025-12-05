@@ -26,7 +26,7 @@
     // CORS Configuration - Update with your production frontend URL
     $allowedOrigins = [
         'http://localhost:5173',
-        'https://project-vote-phi.vercel.app',
+        'https://project-vote-ob70uzblo.vercel.app',
         // Add your Hostinger frontend domain here:
         'https://darkred-magpie-601133.hostingersite.com',
         // Add your custom domain if you have one:
