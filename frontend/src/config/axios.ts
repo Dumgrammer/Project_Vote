@@ -30,7 +30,8 @@ export const buildApiUrl = (path = '') => {
   }
 
   if (path.startsWith('?')) {
-    return `${API_BASE_URL}/${path}`
+    // Don't add slash before query string
+    return `${API_BASE_URL}${path}`
   }
 
   if (path.startsWith('/')) {
