@@ -282,7 +282,7 @@ export default function Candidates() {
 
         {!canModifyElection && election && (
           <Alert severity="info" sx={{ mb: 3 }}>
-            {election.election_type === 'barangay' ? 'Project Election Management' : 'Candidate management'} for this election is read-only. {modificationLockMessage}
+            {election.election_type === 'barangay' ? 'Barangay Project Management' : 'Candidate management'} for this election is read-only. {modificationLockMessage}
           </Alert>
         )}
 
@@ -391,7 +391,7 @@ export default function Candidates() {
                   sx={{ textTransform: 'none' }}
                   disabled={!canModifyElection}
                 >
-                  {election?.election_type === 'barangay' ? 'Add Project' : 'Add Candidate'}
+                  {election?.election_type === 'barangay' ? 'Add Projects' : 'Add Candidate'}
                 </Button>
               </span>
             </Tooltip>
@@ -472,7 +472,7 @@ export default function Candidates() {
                 startIcon={<AddIcon />}
                 onClick={() => handleOpenDialog()}
               >
-                {election?.election_type === 'barangay' ? 'Add Project' : 'Add Candidate'}
+                {election?.election_type === 'barangay' ? 'Add Projects' : 'Add Candidate'}
               </Button>
             )}
           </Box>
