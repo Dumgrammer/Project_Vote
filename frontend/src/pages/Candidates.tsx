@@ -545,7 +545,7 @@ export default function Candidates() {
                 {/* Candidate Image */}
                 <Box
                   sx={{
-                    height: 200,
+                    minHeight: 200,
                     bgcolor: 'grey.200',
                     display: 'flex',
                     alignItems: 'center',
@@ -560,8 +560,9 @@ export default function Candidates() {
                       alt={candidate.full_name || `${candidate.fname} ${candidate.lname}`}
                       sx={{
                         width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
+                        height: 'auto',
+                        objectFit: 'contain',
+                        display: 'block',
                       }}
                     />
                   ) : (

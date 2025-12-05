@@ -596,7 +596,7 @@ const VoterElectionCandidates = () => {
                               >
                                 <Box
                                   sx={{
-                                    height: { xs: 120, sm: 120 },
+                                    minHeight: { xs: 120, sm: 120 },
                                     bgcolor: 'grey.200',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -612,8 +612,9 @@ const VoterElectionCandidates = () => {
                                       alt={candidate.full_name}
                                       sx={{
                                         width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover',
+                                        height: 'auto',
+                                        objectFit: 'contain',
+                                        display: 'block',
                                       }}
                                     />
                                   ) : (
@@ -640,6 +641,9 @@ const VoterElectionCandidates = () => {
                                   sx={{
                                     p: { xs: 2, sm: 1.5 },
                                     '&:last-child': { pb: { xs: 2, sm: 1.5 } },
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    flexGrow: 1,
                                   }}
                                 >
                                   <Chip
@@ -714,24 +718,26 @@ const VoterElectionCandidates = () => {
                                   </Box>
 
                                   {canVote && (
-                                    <FormControlLabel
-                                      value={String(candidate.id)}
-                                      control={allowsMultiple ? <Checkbox size="small" checked={isSelected} /> : <Radio size="small" />}
-                                      label="Select this candidate"
-                                      onClick={e => e.stopPropagation()}
-                                      onChange={e => {
-                                        e.stopPropagation()
-                                        handleVoteChange(position, candidate.id)
-                                      }}
-                                      sx={{
-                                        width: '100%',
-                                        m: 0,
-                                        mt: 0.5,
-                                        '& .MuiFormControlLabel-label': {
-                                          fontSize: '0.8rem',
-                                        },
-                                      }}
-                                    />
+                                    <Box sx={{ mt: 'auto' }}>
+                                      <FormControlLabel
+                                        value={String(candidate.id)}
+                                        control={allowsMultiple ? <Checkbox size="small" checked={isSelected} /> : <Radio size="small" />}
+                                        label="Select this candidate"
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={e => {
+                                          e.stopPropagation()
+                                          handleVoteChange(position, candidate.id)
+                                        }}
+                                        sx={{
+                                          width: '100%',
+                                          m: 0,
+                                          mt: 0.5,
+                                          '& .MuiFormControlLabel-label': {
+                                            fontSize: '0.8rem',
+                                          },
+                                        }}
+                                      />
+                                    </Box>
                                   )}
                                 </CardContent>
                               </Card>
@@ -929,7 +935,7 @@ const VoterElectionCandidates = () => {
                                 >
                                   <Box
                                     sx={{
-                                      height: { xs: 120, sm: 120 },
+                                      minHeight: { xs: 120, sm: 120 },
                                       bgcolor: 'grey.200',
                                       display: 'flex',
                                       alignItems: 'center',
@@ -945,8 +951,9 @@ const VoterElectionCandidates = () => {
                                         alt={candidate.full_name}
                                         sx={{
                                           width: '100%',
-                                          height: '100%',
-                                          objectFit: 'cover',
+                                          height: 'auto',
+                                          objectFit: 'contain',
+                                          display: 'block',
                                         }}
                                       />
                                     ) : (
@@ -973,6 +980,9 @@ const VoterElectionCandidates = () => {
                                     sx={{
                                       p: { xs: 2, sm: 1.5 },
                                       '&:last-child': { pb: { xs: 2, sm: 1.5 } },
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      flexGrow: 1,
                                     }}
                                   >
                                     <Chip
@@ -1047,20 +1057,22 @@ const VoterElectionCandidates = () => {
                                     </Box>
 
                                     {canVote && (
-                                      <FormControlLabel
-                                        value={String(candidate.id)}
-                                        control={<Radio size="small" />}
-                                        label="Select this candidate"
-                                        onClick={e => e.stopPropagation()}
-                                        sx={{
-                                          width: '100%',
-                                          m: 0,
-                                          mt: 0.5,
-                                          '& .MuiFormControlLabel-label': {
-                                            fontSize: '0.8rem',
-                                          },
-                                        }}
-                                      />
+                                      <Box sx={{ mt: 'auto' }}>
+                                        <FormControlLabel
+                                          value={String(candidate.id)}
+                                          control={<Radio size="small" />}
+                                          label="Select this candidate"
+                                          onClick={e => e.stopPropagation()}
+                                          sx={{
+                                            width: '100%',
+                                            m: 0,
+                                            mt: 0.5,
+                                            '& .MuiFormControlLabel-label': {
+                                              fontSize: '0.8rem',
+                                            },
+                                          }}
+                                        />
+                                      </Box>
                                     )}
                                   </CardContent>
                                 </Card>

@@ -292,6 +292,9 @@ const Voters = () => {
                   overflow: 'hidden',
                   position: 'relative',
                   transition: 'transform 0.2s, box-shadow 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%',
                   '&:hover': {
                     transform: 'translateY(-4px)',
                     boxShadow: 3,
@@ -322,7 +325,7 @@ const Voters = () => {
                 {/* Voter Image */}
                 <Box
                   sx={{
-                    height: 200,
+                    minHeight: 200,
                     bgcolor: 'grey.200',
                     display: 'flex',
                     alignItems: 'center',
@@ -337,8 +340,9 @@ const Voters = () => {
                       alt={voter.full_name}
                       sx={{
                         width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
+                        height: 'auto',
+                        objectFit: 'contain',
+                        display: 'block',
                       }}
                     />
                   ) : (
@@ -347,7 +351,14 @@ const Voters = () => {
                 </Box>
 
                 {/* Card Content */}
-                <CardContent sx={{ p: 2 }}>
+                <CardContent 
+                  sx={{ 
+                    p: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flexGrow: 1,
+                  }}
+                >
                   {/* Voter ID Badge */}
                   <Chip
                     label={voter.voters_id}
@@ -415,21 +426,23 @@ const Voters = () => {
                   </Box>
 
                   {/* View Details Button */}
-                  <Button
-                    variant="contained"
-                    size="small"
-                    fullWidth
-                    sx={{
-                      textTransform: 'none',
-                      bgcolor: 'grey.800',
-                      '&:hover': {
-                        bgcolor: 'grey.900',
-                      },
-                    }}
-                    onClick={() => handleOpenDialog(voter)}
-                  >
-                    View Details
-                  </Button>
+                  <Box sx={{ mt: 'auto' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      fullWidth
+                      sx={{
+                        textTransform: 'none',
+                        bgcolor: 'grey.800',
+                        '&:hover': {
+                          bgcolor: 'grey.900',
+                        },
+                      }}
+                      onClick={() => handleOpenDialog(voter)}
+                    >
+                      View Details
+                    </Button>
+                  </Box>
                 </CardContent>
               </Card>
             )
