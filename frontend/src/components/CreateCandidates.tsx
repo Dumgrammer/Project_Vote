@@ -54,6 +54,19 @@ export default function CreateCandidates({
   const { data: parties = [], isLoading: partiesLoading } = useGetParties()
   const { data: election } = useGetElection(electionId, open)
   const { data: positions = [], isLoading: positionsLoading } = useGetPositions(false, election?.election_type)
+  
+  const isBarangay = election?.election_type === 'barangay'
+  
+  // Find "Project" position and party for barangay elections
+  const projectPosition = React.useMemo(() => {
+    if (!isBarangay) return null
+    return positions.find(p => p.name.toLowerCase() === 'project')
+  }, [positions, isBarangay])
+  
+  const projectParty = React.useMemo(() => {
+    if (!isBarangay) return null
+    return parties.find(p => p.party_name.toLowerCase() === 'project' || p.party_code.toLowerCase() === 'project')
+  }, [parties, isBarangay])
 
   const isPending = isCreating || isUpdating
   const error = createError || updateError
@@ -96,15 +109,15 @@ export default function CreateCandidates({
       reset({
         fname: '',
         mname: '',
-        lname: '',
-        party_id: 0,
-        position_id: 0,
+        lname: isBarangay ? 'Project' : '',
+        party_id: isBarangay && projectParty ? projectParty.id : 0,
+        position_id: isBarangay && projectPosition ? projectPosition.id : 0,
         bio: '',
         photo: null,
       })
       setImagePreview(null)
     }
-  }, [initialData, reset, open])
+  }, [initialData, reset, open, isBarangay, projectParty, projectPosition])
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (isLocked) return
@@ -214,7 +227,12 @@ export default function CreateCandidates({
       }}
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-        <Box>{editMode ? 'Edit Candidate' : 'Add New Candidate'}</Box>
+        <Box>
+          {isBarangay 
+            ? (editMode ? 'Edit Project' : 'Add New Project')
+            : (editMode ? 'Edit Candidate' : 'Add New Candidate')
+          }
+        </Box>
         <IconButton edge="end" color="inherit" onClick={handleCancel} aria-label="close" size="small">
           <CloseIcon />
         </IconButton>
@@ -238,7 +256,7 @@ export default function CreateCandidates({
             {/* Photo Upload */}
           <Box>
             <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-              Candidate Photo
+              {isBarangay ? 'Project Photo' : 'Candidate Photo'}
             </Typography>
             <Box
               sx={{
@@ -310,17 +328,17 @@ export default function CreateCandidates({
             </Box>
           </Box>
 
-          {/* First Name */}
+          {/* First Name / Project Name */}
           <Controller
             name="fname"
             control={control}
             render={({ field }) => (
               <TextField
                 {...field}
-                label="First Name"
+                label={isBarangay ? 'Project Name' : 'First Name'}
                 fullWidth
                 required
-                placeholder="e.g., John"
+                placeholder={isBarangay ? 'e.g., Road Construction' : 'e.g., John'}
                 error={!!errors.fname}
                 helperText={errors.fname?.message}
                 disabled={isInteractionDisabled}
@@ -328,134 +346,142 @@ export default function CreateCandidates({
             )}
           />
 
-          {/* Middle Name */}
-          <Controller
-            name="mname"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="Middle Name (Optional)"
-                fullWidth
-                placeholder="e.g., Michael"
-                error={!!errors.mname}
-                helperText={errors.mname?.message}
-                disabled={isInteractionDisabled}
-              />
-            )}
-          />
-
-          {/* Last Name */}
-          <Controller
-            name="lname"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="Last Name"
-                fullWidth
-                required
-                placeholder="e.g., Smith"
-                error={!!errors.lname}
-                helperText={errors.lname?.message}
-                disabled={isInteractionDisabled}
-              />
-            )}
-          />
-
-          {/* Position Dropdown with Add New Button */}
-          <Box>
+          {/* Middle Name - Hidden for barangay */}
+          {!isBarangay && (
             <Controller
-              name="position_id"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  select
-                  label="Position"
-                  fullWidth
-                  required
-                  error={!!errors.position_id}
-                  helperText={errors.position_id?.message}
-                  disabled={positionsLoading || isInteractionDisabled}
-                  value={field.value || ''}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
-                >
-                  {positions.length === 0 && !positionsLoading ? (
-                    <MenuItem disabled value={0}>
-                      No positions available. Please create positions for this election type first.
-                    </MenuItem>
-                  ) : (
-                    positions.map((position) => (
-                      <MenuItem key={position.id} value={position.id}>
-                        {position.name}
-                        {position.allows_multiple_votes && ' (Multiple votes allowed)'}
-                      </MenuItem>
-                    ))
-                  )}
-                </TextField>
-              )}
-            />
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => !isInteractionDisabled && setPositionDialogOpen(true)}
-              sx={{ mt: 1, textTransform: 'none' }}
-              disabled={isInteractionDisabled || !election?.election_type}
-            >
-              Add New Position
-            </Button>
-          </Box>
-
-          {/* Party Dropdown with Add New Button */}
-          <Box>
-            <Controller
-              name="party_id"
+              name="mname"
               control={control}
               render={({ field }) => (
                 <TextField
                   {...field}
-                  select
-                  label="Party / Affiliation"
+                  label="Middle Name (Optional)"
                   fullWidth
-                  required
-                  error={!!errors.party_id}
-                  helperText={errors.party_id?.message}
-                  disabled={partiesLoading || isInteractionDisabled}
-                  value={field.value || ''}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
-                >
-                  {parties.map((party) => (
-                    <MenuItem key={party.id} value={party.id}>
-                      {party.party_name} ({party.party_code})
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  placeholder="e.g., Michael"
+                  error={!!errors.mname}
+                  helperText={errors.mname?.message}
+                  disabled={isInteractionDisabled}
+                />
               )}
             />
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => !isInteractionDisabled && setPartyDialogOpen(true)}
-              sx={{ mt: 1, textTransform: 'none' }}
-              disabled={isInteractionDisabled}
-            >
-              Add New Party
-            </Button>
-          </Box>
+          )}
 
-          {/* Bio */}
+          {/* Last Name - Hidden for barangay, default to "Project" */}
+          {!isBarangay && (
+            <Controller
+              name="lname"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Last Name"
+                  fullWidth
+                  required
+                  placeholder="e.g., Smith"
+                  error={!!errors.lname}
+                  helperText={errors.lname?.message}
+                  disabled={isInteractionDisabled}
+                />
+              )}
+            />
+          )}
+
+          {/* Position Dropdown with Add New Button - Hidden for barangay */}
+          {!isBarangay && (
+            <Box>
+              <Controller
+                name="position_id"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    select
+                    label="Position"
+                    fullWidth
+                    required
+                    error={!!errors.position_id}
+                    helperText={errors.position_id?.message}
+                    disabled={positionsLoading || isInteractionDisabled}
+                    value={field.value || ''}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                  >
+                    {positions.length === 0 && !positionsLoading ? (
+                      <MenuItem disabled value={0}>
+                        No positions available. Please create positions for this election type first.
+                      </MenuItem>
+                    ) : (
+                      positions.map((position) => (
+                        <MenuItem key={position.id} value={position.id}>
+                          {position.name}
+                          {position.allows_multiple_votes && ' (Multiple votes allowed)'}
+                        </MenuItem>
+                      ))
+                    )}
+                  </TextField>
+                )}
+              />
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => !isInteractionDisabled && setPositionDialogOpen(true)}
+                sx={{ mt: 1, textTransform: 'none' }}
+                disabled={isInteractionDisabled || !election?.election_type}
+              >
+                Add New Position
+              </Button>
+            </Box>
+          )}
+
+          {/* Party Dropdown with Add New Button - Hidden for barangay */}
+          {!isBarangay && (
+            <Box>
+              <Controller
+                name="party_id"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Party / Affiliation"
+                    fullWidth
+                    required
+                    error={!!errors.party_id}
+                    helperText={errors.party_id?.message}
+                    disabled={partiesLoading || isInteractionDisabled}
+                    value={field.value || ''}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                  >
+                    {parties.map((party) => (
+                      <MenuItem key={party.id} value={party.id}>
+                        {party.party_name} ({party.party_code})
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              />
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => !isInteractionDisabled && setPartyDialogOpen(true)}
+                sx={{ mt: 1, textTransform: 'none' }}
+                disabled={isInteractionDisabled}
+              >
+                Add New Party
+              </Button>
+            </Box>
+          )}
+
+          {/* Bio / Description */}
           <Controller
             name="bio"
             control={control}
             render={({ field }) => (
               <TextField
                 {...field}
-                label="Biography"
+                label={isBarangay ? 'Description' : 'Biography'}
                 fullWidth
                 required
                 multiline
                 rows={4}
-                placeholder="Brief description of the candidate..."
+                placeholder={isBarangay ? 'Brief description of the project...' : 'Brief description of the candidate...'}
                 error={!!errors.bio}
                 helperText={errors.bio?.message}
                 disabled={isInteractionDisabled}
@@ -483,8 +509,8 @@ export default function CreateCandidates({
                 ? 'Updating...'
                 : 'Creating...'
               : editMode
-              ? 'Update Candidate'
-              : 'Add Candidate'}
+              ? election?.election_type === 'barangay' ? 'Update Project' : 'Update Candidate'
+              : election?.election_type === 'barangay' ? 'Add Project' : 'Add Candidate'}
           </Button>
         </DialogActions>
       </form>

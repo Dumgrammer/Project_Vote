@@ -127,7 +127,10 @@ export default function Candidates() {
     return startTime - Date.now() > ONE_DAY_MS
   }, [election])
 
-  const modificationLockMessage = 'Candidate management is locked within 24 hours of the election start and while an election is ongoing or completed.'
+  const modificationLockMessage = React.useMemo(() => {
+    const managementType = election?.election_type === 'barangay' ? 'Project Election Management' : 'Candidate management'
+    return `${managementType} is locked within 24 hours of the election start and while an election is ongoing or completed.`
+  }, [election])
 
   const electionTypeConfig = React.useMemo(
     () => (election ? getTypeConfig(election.election_type) : null),
@@ -279,7 +282,7 @@ export default function Candidates() {
 
         {!canModifyElection && election && (
           <Alert severity="info" sx={{ mb: 3 }}>
-            Candidate management for this election is read-only. {modificationLockMessage}
+            {election.election_type === 'barangay' ? 'Project Election Management' : 'Candidate management'} for this election is read-only. {modificationLockMessage}
           </Alert>
         )}
 
@@ -368,7 +371,7 @@ export default function Candidates() {
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-              Candidate Management
+              {election?.election_type === 'barangay' ? 'Project Election Management' : 'Candidate Management'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {election ? election.election_title : 'Loading...'}
@@ -388,7 +391,7 @@ export default function Candidates() {
                   sx={{ textTransform: 'none' }}
                   disabled={!canModifyElection}
                 >
-                  Add Candidate
+                  {election?.election_type === 'barangay' ? 'Add Project' : 'Add Candidate'}
                 </Button>
               </span>
             </Tooltip>
@@ -469,7 +472,7 @@ export default function Candidates() {
                 startIcon={<AddIcon />}
                 onClick={() => handleOpenDialog()}
               >
-                Add Candidate
+                {election?.election_type === 'barangay' ? 'Add Project' : 'Add Candidate'}
               </Button>
             )}
           </Box>
