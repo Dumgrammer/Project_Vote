@@ -24,7 +24,8 @@ import HowToVoteIcon from '@mui/icons-material/HowToVote'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
-const API_URL = 'http://localhost/Project_Vote/backend'
+import { API_BASE_URL } from '../config/axios'
+const API_URL = API_BASE_URL
 
 interface SearchCandidateResult {
   id: number

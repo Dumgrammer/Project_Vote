@@ -22,7 +22,8 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
-const API_URL = 'http://localhost/Project_Vote/backend'
+import { API_BASE_URL } from '../config/axios'
+const API_URL = API_BASE_URL
 
 interface SearchVoterResult {
   voters_id: string

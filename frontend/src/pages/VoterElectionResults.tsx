@@ -21,7 +21,8 @@ import { getImageUrl } from '../utils/imageUtils'
 import axios from 'axios'
 import { useQuery } from '@tanstack/react-query'
 
-const API_URL = 'http://localhost/Project_Vote/backend'
+import { API_BASE_URL } from '../config/axios'
+const API_URL = API_BASE_URL
 
 interface CandidateResult {
   id: number

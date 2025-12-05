@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from '../config/axios'
 
-const API_URL = 'http://localhost/Project_Vote/backend'
+import { API_BASE_URL } from '../config/axios'
+const API_URL = API_BASE_URL
 
 interface VoteData {
   candidate_id: number
