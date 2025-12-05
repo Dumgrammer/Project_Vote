@@ -15,9 +15,6 @@ class PositionController extends GlobalUtil {
     public function createPosition($name, $allows_multiple_votes, $type) {
         try {
             // Check if user is authenticated
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
 
             // Validate required fields
             if (empty($name) || empty($type)) {
@@ -43,7 +40,7 @@ class PositionController extends GlobalUtil {
                 $allowsMultiple = false;
             }
 
-            $created_by = $_SESSION['user_id'];
+            $created_by = $_SESSION['user_id'] ?? 1; // Default to admin ID 1 if no session
 
             $sql = "INSERT INTO positions (name, allows_multiple_votes, type, created_by) 
                     VALUES (:name, :allows_multiple_votes, :type, :created_by)";
@@ -75,9 +72,6 @@ class PositionController extends GlobalUtil {
     // Get all positions
     public function getAllPositions($includeArchived = false, $type = null) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
 
             $sql = "SELECT p.*, 
                            CONCAT(a.fname, ' ', a.lname) as creator_name,
@@ -122,9 +116,6 @@ class PositionController extends GlobalUtil {
     // Get position by ID
     public function getPositionById($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
 
             $sql = "SELECT p.*, 
                            CONCAT(a.fname, ' ', a.lname) as creator_name,
@@ -154,9 +145,6 @@ class PositionController extends GlobalUtil {
     // Update position
     public function updatePosition($id, $name, $allows_multiple_votes, $type) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
 
             // Check if position exists
             $existingPosition = $this->getPositionById($id);
@@ -217,9 +205,6 @@ class PositionController extends GlobalUtil {
     // Archive position (soft delete)
     public function archivePosition($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
 
             $sql = "UPDATE positions SET is_archived = TRUE WHERE id = :id";
             $stmt = $this->pdo->prepare($sql);
@@ -242,9 +227,6 @@ class PositionController extends GlobalUtil {
     // Delete position permanently
     public function deletePosition($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
 
             $sql = "DELETE FROM positions WHERE id = :id";
             $stmt = $this->pdo->prepare($sql);

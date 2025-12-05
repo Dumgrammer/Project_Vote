@@ -9,7 +9,6 @@ import {
   Button,
   CircularProgress,
   Alert,
-  Avatar,
 } from '@mui/material'
 import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -183,26 +182,59 @@ const VoterProfile = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {/* Profile Image */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
-                  <Avatar
-                    src={imagePreview || undefined}
-                    sx={{ width: 120, height: 120, mb: 2, bgcolor: 'primary.main' }}
+                  <Box
+                    sx={{
+                      width: 200,
+                      aspectRatio: '1 / 1',
+                      bgcolor: 'grey.200',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      borderRadius: 2,
+                      mb: 2,
+                      border: '2px solid',
+                      borderColor: 'divider',
+                    }}
                   >
-                    {!imagePreview && <PersonIcon sx={{ fontSize: 60 }} />}
-                  </Avatar>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    startIcon={<CloudUploadIcon />}
-                    size="small"
-                  >
-                    Upload Photo
-                    <input type="file" hidden accept="image/*" onChange={handleImageChange} />
-                  </Button>
-                  {selectedFile && (
-                    <Button size="small" onClick={handleRemoveImage} startIcon={<CloseIcon />} sx={{ mt: 1 }}>
-                      Remove
+                    {imagePreview ? (
+                      <Box
+                        component="img"
+                        src={imagePreview}
+                        alt={profile?.full_name || `${profile?.fname} ${profile?.lname}`}
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                    ) : (
+                      <PersonIcon sx={{ fontSize: 80, color: 'grey.400' }} />
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      startIcon={<CloudUploadIcon />}
+                      size="small"
+                    >
+                      Upload Photo
+                      <input type="file" hidden accept="image/*" onChange={handleImageChange} />
                     </Button>
-                  )}
+                    {selectedFile && (
+                      <Button 
+                        size="small" 
+                        onClick={handleRemoveImage} 
+                        startIcon={<CloseIcon />}
+                        variant="outlined"
+                        color="error"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
 
                 {/* Voter ID (readonly) */}

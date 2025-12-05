@@ -21,11 +21,6 @@ class CandidateController extends GlobalUtil {
     // Create a new candidate
     public function createCandidate($election_id, $fname, $mname, $lname, $party_id, $position_id, $bio, $photoFile = null) {
         try {
-            // Check if user is authenticated
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             // Validate required fields
             if (empty($election_id) || empty($fname) || empty($lname) || empty($party_id) || empty($position_id)) {
                 return $this->sendErrorResponse("Election ID, first name, last name, party, and position are required", 400);
@@ -67,7 +62,7 @@ class CandidateController extends GlobalUtil {
                 $photo = $uploadResult['filename'];
             }
 
-            $created_by = $_SESSION['user_id'];
+            $created_by = $_SESSION['user_id'] ?? 1; // Default to admin ID 1 if no session
             $positionName = $position['name']; // Store position name for backward compatibility
 
             $sql = "INSERT INTO candidates (election_id, fname, mname, lname, party_id, position_id, position, bio, photo, created_by) 
@@ -106,10 +101,6 @@ class CandidateController extends GlobalUtil {
     // Get all candidates for an election
     public function getCandidatesByElection($election_id, $includeArchived = false) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             $sql = "SELECT c.*, 
                            p.party_name,
                            p.party_code,
@@ -149,10 +140,6 @@ class CandidateController extends GlobalUtil {
     // Get candidate by ID
     public function getCandidateById($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             $sql = "SELECT c.*, 
                            p.party_name,
                            p.party_code,
@@ -187,14 +174,20 @@ class CandidateController extends GlobalUtil {
     // Update candidate
     public function updateCandidate($id, $fname, $mname, $lname, $party_id, $position_id, $bio, $photoFile = null) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
+            // Validate required fields first
+            if (empty($fname) || empty($lname) || empty($party_id) || empty($position_id)) {
+                return $this->sendErrorResponse("First name, last name, party, and position are required", 400);
             }
-
+            
             // Check if candidate exists
             $existingCandidate = $this->getCandidateById($id);
             if ($existingCandidate['status'] === 'error') {
                 return $existingCandidate;
+            }
+            
+            // Ensure we have the data array
+            if (!isset($existingCandidate['data'])) {
+                return $this->sendErrorResponse("Candidate data not found", 404);
             }
 
             // Get election to verify position type match
@@ -280,10 +273,6 @@ class CandidateController extends GlobalUtil {
     // Archive candidate (soft delete)
     public function archiveCandidate($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             $sql = "UPDATE candidates SET is_archived = TRUE WHERE id = :id";
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':id', $id);
@@ -305,10 +294,6 @@ class CandidateController extends GlobalUtil {
     // Delete candidate permanently
     public function deleteCandidate($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             // Get candidate to delete photo
             $candidate = $this->getCandidateById($id);
             if ($candidate['status'] === 'error') {

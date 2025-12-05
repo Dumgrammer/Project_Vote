@@ -27,6 +27,7 @@
     $allowedOrigins = [
         'http://localhost:5173',
         'https://project-vote-ob70uzblo.vercel.app',
+        'https://project-vote-phi.vercel.app',
         // Add your Hostinger frontend domain here:
         'https://darkred-magpie-601133.hostingersite.com',
         // Add your custom domain if you have one:
@@ -539,22 +540,51 @@
             break;
             
         case 'PUT':
-            $data = json_decode(file_get_contents("php://input"));
+            // Check content type - multipart/form-data uses $_POST, JSON uses php://input
+            $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+            $isMultipart = strpos($contentType, 'multipart/form-data') !== false;
+            
+            // PHP doesn't populate $_POST for PUT requests, so we need to parse manually
+            // But if $_POST is already populated (some servers do this), use it
+            if ($isMultipart) {
+                // For multipart/form-data PUT, try $_POST first (some servers populate it)
+                // If empty, we'll need to parse manually (but that's complex)
+                // For now, assume $_POST might be populated by the server
+                $data = null;
+            } else {
+                // For JSON, parse from php://input
+                $rawInput = file_get_contents("php://input");
+                $data = !empty($rawInput) ? json_decode($rawInput) : null;
+            }
+            
             switch ($request[0]) {
                 case 'election':
                     if (isset($request[1])) {
-                        if (isset($data->election_title) && isset($data->start_date) && isset($data->end_date)) {
+                        if ($isMultipart) {
+                            $election_title = $_POST['election_title'] ?? null;
+                            $start_date = $_POST['start_date'] ?? null;
+                            $end_date = $_POST['end_date'] ?? null;
+                            $description = $_POST['description'] ?? '';
+                            $election_type = $_POST['election_type'] ?? null;
+                            $imgFile = $_FILES['img'] ?? null;
+                        } else {
+                            $election_title = $data->election_title ?? null;
+                            $start_date = $data->start_date ?? null;
+                            $end_date = $data->end_date ?? null;
                             $description = $data->description ?? '';
-                            $img = $data->img ?? null;
                             $election_type = $data->election_type ?? null;
+                            $imgFile = $data->img ?? null;
+                        }
+                        
+                        if ($election_title && $start_date && $end_date) {
                             $response = $electionController->updateElection(
                                 $request[1],
-                                $data->election_title,
+                                $election_title,
                                 $description,
-                                $data->start_date,
-                                $data->end_date,
+                                $start_date,
+                                $end_date,
                                 $election_type,
-                                $img
+                                $imgFile
                             );
                             echo json_encode($response);
                             http_response_code($response['statusCode']);
@@ -570,16 +600,92 @@
                 
                 case 'candidate':
                     if (isset($request[1])) {
-                        // Handle multipart/form-data for file upload
-                        $fname = $_POST['fname'] ?? null;
-                        $mname = $_POST['mname'] ?? '';
-                        $lname = $_POST['lname'] ?? null;
-                        $party_id = $_POST['party_id'] ?? null;
-                        $position_id = $_POST['position_id'] ?? null;
-                        $bio = $_POST['bio'] ?? '';
-                        $photoFile = $_FILES['photo'] ?? null;
+                        // Handle both JSON and multipart/form-data
+                        // For PUT requests, PHP doesn't populate $_POST automatically
+                        // So we need to check both $_POST (if server populates it) and parse from input
+                        if ($isMultipart) {
+                            // Try $_POST first (some servers populate it for PUT)
+                            if (!empty($_POST)) {
+                                $fname = $_POST['fname'] ?? null;
+                                $mname = $_POST['mname'] ?? '';
+                                $lname = $_POST['lname'] ?? null;
+                                $party_id = $_POST['party_id'] ?? null;
+                                $position_id = $_POST['position_id'] ?? null;
+                                $bio = $_POST['bio'] ?? '';
+                                $photoFile = $_FILES['photo'] ?? null;
+                            } else {
+                                // $_POST is empty - parse multipart/form-data from php://input
+                                $rawInput = file_get_contents("php://input");
+                                
+                                // Extract boundary from Content-Type
+                                preg_match('/boundary=(.*?)(?:;|$)/', $contentType, $matches);
+                                $boundary = isset($matches[1]) ? trim($matches[1], '"\'') : null;
+                                
+                                if ($boundary && !empty($rawInput)) {
+                                    // Parse multipart data
+                                    $parts = explode('--' . $boundary, $rawInput);
+                                    $parsedData = [];
+                                    
+                                    foreach ($parts as $part) {
+                                        $part = trim($part);
+                                        if (empty($part) || $part === '--') continue;
+                                        
+                                        // Split headers and body
+                                        if (preg_match('/Content-Disposition:\s*form-data;\s*name="([^"]+)"(?:\s*;\s*filename="[^"]+")?/i', $part, $nameMatch)) {
+                                            $fieldName = $nameMatch[1];
+                                            
+                                            // Find the value after the headers (after double CRLF)
+                                            $headerEnd = strpos($part, "\r\n\r\n");
+                                            if ($headerEnd === false) {
+                                                $headerEnd = strpos($part, "\n\n");
+                                            }
+                                            
+                                            if ($headerEnd !== false) {
+                                                $fieldValue = substr($part, $headerEnd + 4); // Skip CRLFCRLF or \n\n
+                                                // Remove trailing CRLF and boundary markers
+                                                $fieldValue = rtrim($fieldValue, "\r\n");
+                                                $fieldValue = preg_replace('/--\s*$/', '', $fieldValue);
+                                                $parsedData[$fieldName] = trim($fieldValue);
+                                            }
+                                        }
+                                    }
+                                    
+                                    $fname = $parsedData['fname'] ?? null;
+                                    $mname = $parsedData['mname'] ?? '';
+                                    $lname = $parsedData['lname'] ?? null;
+                                    $party_id = $parsedData['party_id'] ?? null;
+                                    $position_id = $parsedData['position_id'] ?? null;
+                                    $bio = $parsedData['bio'] ?? '';
+                                    $photoFile = null; // File parsing from raw input is complex, skip for now
+                                } else {
+                                    // No boundary found or empty input, try JSON as fallback
+                                    $data = !empty($rawInput) ? json_decode($rawInput) : null;
+                                    $fname = $data->fname ?? null;
+                                    $mname = $data->mname ?? '';
+                                    $lname = $data->lname ?? null;
+                                    $party_id = $data->party_id ?? null;
+                                    $position_id = $data->position_id ?? null;
+                                    $bio = $data->bio ?? '';
+                                    $photoFile = null;
+                                }
+                            }
+                        } else {
+                            // JSON request
+                            $fname = $data->fname ?? null;
+                            $mname = $data->mname ?? '';
+                            $lname = $data->lname ?? null;
+                            $party_id = $data->party_id ?? null;
+                            $position_id = $data->position_id ?? null;
+                            $bio = $data->bio ?? '';
+                            $photoFile = null; // No file upload for JSON
+                        }
                         
-                        if ($fname && $lname && $party_id && $position_id) {
+                        // Convert to integers if they're strings (allow 0 as valid ID)
+                        $party_id = $party_id !== null && $party_id !== '' ? (int)$party_id : null;
+                        $position_id = $position_id !== null && $position_id !== '' ? (int)$position_id : null;
+                        
+                        // Validate required fields (check for null/empty, but allow 0 as valid ID)
+                        if ($fname && $lname && $party_id !== null && $position_id !== null) {
                             $response = $candidateController->updateCandidate(
                                 $request[1],
                                 $fname,
@@ -593,7 +699,25 @@
                             echo json_encode($response);
                             http_response_code($response['statusCode']);
                         } else {
-                            echo json_encode(["error" => "First name, last name, party, and position are required"]);
+                            $missing = [];
+                            if (!$fname) $missing[] = 'first name';
+                            if (!$lname) $missing[] = 'last name';
+                            if ($party_id === null) $missing[] = 'party';
+                            if ($position_id === null) $missing[] = 'position';
+                            // Debug info
+                            $debug = [
+                                'content_type' => $contentType,
+                                'is_multipart' => $isMultipart,
+                                'post_empty' => empty($_POST),
+                                'fname' => $fname,
+                                'lname' => $lname,
+                                'party_id' => $party_id,
+                                'position_id' => $position_id
+                            ];
+                            echo json_encode([
+                                "error" => "Missing required fields: " . implode(', ', $missing),
+                                "debug" => $debug
+                            ]);
                             http_response_code(400);
                         }
                     } else {

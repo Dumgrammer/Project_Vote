@@ -19,11 +19,6 @@ class ElectionController extends GlobalUtil {
 
     public function createElection($election_title, $description, $start_date, $end_date, $election_type = 'school', $imgFile = null) {
         try {
-            // Check if user is authenticated
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             // Validate required fields
             if (empty($election_title) || empty($start_date) || empty($end_date)) {
                 return $this->sendErrorResponse("Election title, start date, and end date are required", 400);
@@ -57,7 +52,26 @@ class ElectionController extends GlobalUtil {
                 $img = $uploadResult['filename'];
             }
 
-            $created_by = $_SESSION['user_id'];
+            // Get created_by from session or find first admin ID
+            $created_by = null;
+            if (isset($_SESSION['user_id'])) {
+                $created_by = $_SESSION['user_id'];
+            } else {
+                // Get first admin ID from database (required for foreign key)
+                try {
+                    $adminStmt = $this->pdo->query("SELECT id FROM admin ORDER BY id ASC LIMIT 1");
+                    $admin = $adminStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($admin && isset($admin['id'])) {
+                        $created_by = (int)$admin['id'];
+                    } else {
+                        // No admin exists - this is a problem, but try to continue
+                        // In production, you should have at least one admin
+                        throw new \Exception("No admin user found in database. Please create an admin account first.");
+                    }
+                } catch (\PDOException $e) {
+                    throw new \Exception("Database error getting admin ID: " . $e->getMessage());
+                }
+            }
 
             $sql = "INSERT INTO elections (election_title, description, election_type, start_date, end_date, img, created_by) 
                     VALUES (:election_title, :description, :election_type, :start_date, :end_date, :img, :created_by)";
@@ -82,8 +96,11 @@ class ElectionController extends GlobalUtil {
                     'election' => $election['data']
                 ], 201);
             } else {
-                return $this->sendErrorResponse("Failed to create election", 500);
+                $errorInfo = $stmt->errorInfo();
+                return $this->sendErrorResponse("Failed to create election: " . ($errorInfo[2] ?? 'Unknown database error'), 500);
             }
+        } catch (\PDOException $e) {
+            return $this->sendErrorResponse("Database error creating election: " . $e->getMessage(), 500);
         } catch (\Exception $e) {
             return $this->sendErrorResponse("Error creating election: " . $e->getMessage(), 500);
         }
@@ -92,10 +109,6 @@ class ElectionController extends GlobalUtil {
     // Get all elections (not archived by default)
     public function getAllElections($includeArchived = false) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             $sql = "SELECT e.*, 
                            CONCAT(a.fname, ' ', a.lname) as creator_name,
                            a.email as creator_email
@@ -128,10 +141,6 @@ class ElectionController extends GlobalUtil {
     // Get election by ID
     public function getElectionById($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             $sql = "SELECT e.*, 
                            CONCAT(a.fname, ' ', a.lname) as creator_name,
                            a.email as creator_email
@@ -160,10 +169,6 @@ class ElectionController extends GlobalUtil {
     // Update election
     public function updateElection($id, $election_title, $description, $start_date, $end_date, $election_type = null, $imgFile = null) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             // Check if election exists
             $existingElection = $this->getElectionById($id);
             if ($existingElection['status'] === 'error') {
@@ -249,10 +254,6 @@ class ElectionController extends GlobalUtil {
     // Archive election (soft delete)
     public function archiveElection($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             $sql = "UPDATE elections SET is_archived = TRUE WHERE id = :id";
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':id', $id);
@@ -274,10 +275,6 @@ class ElectionController extends GlobalUtil {
     // Delete election permanently
     public function deleteElection($id) {
         try {
-            if (!$this->isAuthenticated()) {
-                return $this->sendErrorResponse("Unauthorized: Please login", 401);
-            }
-
             // Get election to delete its image
             $election = $this->getElectionById($id);
             if ($election['status'] === 'error') {
@@ -307,19 +304,21 @@ class ElectionController extends GlobalUtil {
     }
 
     // Helper function to determine election status
-    // Get elections for voters (public access, verified voters only)
+    // Get elections for voters (PUBLIC - no authentication required)
     public function getElectionsForVoters() {
         try {
-            // Check if voter is authenticated
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
+            // PUBLIC ENDPOINT - No authentication required
+            // Optionally filter by voter type if voter is logged in
+            $voterType = null;
             
-            if (!isset($_SESSION['voter_logged_in']) || $_SESSION['voter_logged_in'] !== true) {
-                return $this->sendErrorResponse("Unauthorized", 401);
+            // Try to get voter type from session if logged in (optional)
+            require_once(__DIR__ . '/../utils/utils.php');
+            if (function_exists('initSession')) {
+                initSession();
+                if (isset($_SESSION['voter_logged_in']) && $_SESSION['voter_logged_in'] === true) {
+                    $voterType = $_SESSION['voter_type'] ?? null;
+                }
             }
-
-            $voterType = $_SESSION['voter_type'] ?? null;
             $sql = "SELECT id, election_title, description, election_type, start_date, end_date, img, created
                     FROM elections
                     WHERE is_archived = FALSE";

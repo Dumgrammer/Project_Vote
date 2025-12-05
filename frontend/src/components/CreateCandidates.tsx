@@ -8,7 +8,6 @@ import TextField from '@mui/material/TextField'
 import Box from '@mui/material/Box'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
-import Avatar from '@mui/material/Avatar'
 import MenuItem from '@mui/material/MenuItem'
 import Alert from '@mui/material/Alert'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -252,16 +251,27 @@ export default function CreateCandidates({
               }}
             >
               {imagePreview ? (
-                <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                  <Avatar src={imagePreview} sx={{ width: 120, height: 120, mx: 'auto' }} />
+                <Box sx={{ position: 'relative', display: 'inline-block', width: '100%', maxWidth: 300, mx: 'auto' }}>
+                  <Box
+                    component="img"
+                    src={imagePreview}
+                    alt="Preview"
+                    sx={{
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      objectFit: 'cover',
+                      borderRadius: 2,
+                      display: 'block',
+                    }}
+                  />
                   <IconButton
                     size="small"
                     disabled={isInteractionDisabled}
                     onClick={handleRemoveImage}
                     sx={{
                       position: 'absolute',
-                      top: -8,
-                      right: -8,
+                      top: 8,
+                      right: 8,
                       bgcolor: 'error.main',
                       color: 'white',
                       '&:hover': { bgcolor: 'error.dark' },

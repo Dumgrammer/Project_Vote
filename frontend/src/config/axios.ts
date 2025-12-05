@@ -22,7 +22,8 @@ const resolveBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname.toLowerCase()
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost/Project_Vote/backend'
+      //return 'http://localhost/Project_Vote/backend'
+      return 'https://darkred-magpie-601133.hostingersite.com/backend'
     }
   }
 

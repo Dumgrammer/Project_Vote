@@ -587,9 +587,6 @@ export default function Dashboard() {
                         />
                       </Box>
                     </Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {election.votes}
-                    </Typography>
                   </Box>
                 ))
               ) : recentElections.length === 0 ? (

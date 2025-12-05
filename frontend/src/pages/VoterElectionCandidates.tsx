@@ -597,7 +597,8 @@ const VoterElectionCandidates = () => {
                               >
                                 <Box
                                   sx={{
-                                    minHeight: { xs: 120, sm: 120 },
+                                    width: '100%',
+                                    aspectRatio: '1 / 1',
                                     bgcolor: 'grey.200',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -613,8 +614,8 @@ const VoterElectionCandidates = () => {
                                       alt={candidate.full_name}
                                       sx={{
                                         width: '100%',
-                                        height: 'auto',
-                                        objectFit: 'contain',
+                                        height: '100%',
+                                        objectFit: 'cover',
                                         display: 'block',
                                       }}
                                     />

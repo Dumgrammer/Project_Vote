@@ -1,5 +1,40 @@
 <?php 
 
+// Initialize session with proper cookie settings for cross-domain
+function initSession() {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return; // Session already started
+    }
+    
+    // Detect if production
+    $isProduction = !in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1']) 
+        && strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false;
+    
+    if ($isProduction) {
+        // Production: Cross-domain cookie settings
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'domain' => '',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'None'
+        ]);
+    } else {
+        // Development
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'domain' => '',
+            'secure' => false,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+    }
+    
+    session_start();
+}
+
 class GlobalUtil{
 
     protected function isAdminAuthDisabled(): bool {

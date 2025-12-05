@@ -1,17 +1,14 @@
 import * as React from 'react'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
-import Toolbar from '@mui/material/Toolbar'
 import List from '@mui/material/List'
 import Typography from '@mui/material/Typography'
-import Divider from '@mui/material/Divider'
 import MenuIcon from '@mui/icons-material/Menu'
 import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Fab from '@mui/material/Fab'
-import HowToVoteIcon from '@mui/icons-material/HowToVote'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import HowToVoteOutlinedIcon from '@mui/icons-material/HowToVoteOutlined'
 import BarChartIcon from '@mui/icons-material/BarChart'
@@ -60,52 +57,78 @@ export default function Sidenav({ children }: SidenavProps) {
   }
 
   const drawer = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box 
+      sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: 'calc(100vh - 32px)',
+        bgcolor: 'white',
+        borderRadius: 2,
+        m: 2,
+        overflow: 'hidden',
+      }}
+    >
       <Box>
-        <Toolbar sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
-          <HowToVoteIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-          <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '.1rem' }}>
-            POLLIFY
+        <Box sx={{ px: 3, py: 2.5 }}>
+          <Typography 
+            variant="overline" 
+            sx={{ 
+              color: 'text.secondary',
+              fontWeight: 600,
+              letterSpacing: 1,
+              fontSize: '0.75rem',
+            }}
+          >
+            Pollify
           </Typography>
-        </Toolbar>
-        <Divider />
-        <List>
-          {menuItems.map((item) => (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton
-                onClick={() => handleNavigation(item.path)}
-                selected={location.pathname === item.path}
-                sx={{
-                  '&.Mui-selected': {
-                    bgcolor: 'primary.main',
-                    color: 'white',
+        </Box>
+        <List sx={{ px: 1.5, py: 0 }}>
+          {menuItems.map((item) => {
+            const isSelected = location.pathname === item.path
+            return (
+              <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => handleNavigation(item.path)}
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 2,
+                    bgcolor: isSelected ? 'rgba(0, 0, 0, 0.05)' : 'transparent',
                     '&:hover': {
-                      bgcolor: 'primary.dark',
+                      bgcolor: 'rgba(0, 0, 0, 0.05)',
                     },
-                    '& .MuiListItemIcon-root': {
-                      color: 'white',
-                    },
-                  },
-                }}
-              >
-                <ListItemIcon sx={{ color: 'primary.main' }}>
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
+                    transition: 'background-color 0.2s',
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40, color: 'primary.main' }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary={item.text} 
+                    primaryTypographyProps={{
+                      sx: {
+                        fontWeight: isSelected ? 600 : 400,
+                        color: 'text.primary',
+                      }
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            )
+          })}
         </List>
       </Box>
       
       {/* Logout button at the bottom */}
-      <Box sx={{ mt: 'auto' }}>
-        <Divider />
-        <List>
+      <Box sx={{ mt: 'auto', borderTop: '1px solid', borderColor: 'divider' }}>
+        <List sx={{ px: 1.5, py: 1 }}>
           <ListItem disablePadding>
             <ListItemButton
               onClick={handleLogout}
               sx={{
+                borderRadius: 2,
+                py: 1.5,
+                px: 2,
                 '&:hover': {
                   bgcolor: 'error.light',
                   color: 'error.contrastText',
@@ -113,9 +136,10 @@ export default function Sidenav({ children }: SidenavProps) {
                     color: 'error.contrastText',
                   },
                 },
+                transition: 'all 0.2s',
               }}
             >
-              <ListItemIcon sx={{ color: 'error.main' }}>
+              <ListItemIcon sx={{ minWidth: 40, color: 'error.main' }}>
                 <LogoutIcon />
               </ListItemIcon>
               <ListItemText primary="Logout" />
@@ -159,7 +183,12 @@ export default function Sidenav({ children }: SidenavProps) {
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              bgcolor: 'transparent',
+              border: 'none',
+            },
           }}
         >
           {drawer}
@@ -170,7 +199,16 @@ export default function Sidenav({ children }: SidenavProps) {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              bgcolor: 'transparent',
+              border: 'none',
+              position: 'relative',
+              zIndex: 1,
+              height: '100vh',
+              overflow: 'visible',
+            },
           }}
           open
         >
@@ -186,7 +224,7 @@ export default function Sidenav({ children }: SidenavProps) {
           p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           minHeight: '100vh',
-          bgcolor: 'background.default',
+          position: 'relative',
         }}
       >
         {children}

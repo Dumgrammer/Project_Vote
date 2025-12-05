@@ -325,7 +325,8 @@ const Voters = () => {
                 {/* Voter Image */}
                 <Box
                   sx={{
-                    minHeight: 200,
+                    width: '100%',
+                    aspectRatio: '1 / 1',
                     bgcolor: 'grey.200',
                     display: 'flex',
                     alignItems: 'center',
@@ -340,8 +341,8 @@ const Voters = () => {
                       alt={voter.full_name}
                       sx={{
                         width: '100%',
-                        height: 'auto',
-                        objectFit: 'contain',
+                        height: '100%',
+                        objectFit: 'cover',
                         display: 'block',
                       }}
                     />
