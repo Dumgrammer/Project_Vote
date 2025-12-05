@@ -15,7 +15,6 @@
   import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
   import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import AuthLayout from '../layouts/AuthLayout'
-import { API_BASE_URL } from '../config/axios'
   import StatusModal from '../components/StatusModal'
   import { useForm, Controller } from 'react-hook-form'
   import { zodResolver } from '@hookform/resolvers/zod'
@@ -51,24 +50,10 @@ import { API_BASE_URL } from '../config/axios'
       message: '',
     })
     const { isAuthenticated, isLoading } = useAuth()
-    
-  const { mutate: login, isPending } = useLogin()
+    const { mutate: login, isPending } = useLogin()
 
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      console.log('VITE_API_BASE_URL:', import.meta.env?.VITE_API_BASE_URL)
-      console.log('API_BASE_URL (resolved):', API_BASE_URL)
-      console.log('window.__APP_API_BASE_URL__:', window.__APP_API_BASE_URL__)
-    }
-  }, [])
-
-    // Show loading while checking session
-    if (isLoading) {
-      return null
-    }
-
-    // Redirect if already authenticated
-    if (isAuthenticated) {
+    // Redirect if already authenticated (session check happens in AuthContext)
+    if (!isLoading && isAuthenticated) {
       return <Navigate to="/dashboard" replace />
     }
 

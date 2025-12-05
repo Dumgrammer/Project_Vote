@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import CircularProgress from '@mui/material/CircularProgress'
 import Box from '@mui/material/Box'
 import { keyframes } from '@mui/system'
 
@@ -102,29 +101,35 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth()
   const location = useLocation()
 
-  // Show loading spinner while checking session
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🔵 ProtectedRoute Debug:', {
+      pathname: location.pathname,
+      isAuthenticated,
+      isLoading,
+      decision: isLoading ? 'WAITING (checking session)' : (isAuthenticated ? 'ALLOW (authenticated)' : 'REDIRECT (not authenticated)')
+    })
+  }, [location.pathname, isAuthenticated, isLoading])
+
+  // Show loading state while checking session
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          position: 'relative',
-        }}
-      >
+      <Box sx={{ position: 'relative', minHeight: '100vh' }}>
         <FloatingBackground color="blue" />
-        <CircularProgress sx={{ position: 'relative', zIndex: 1 }} />
+        <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          {/* Loading state - session check in progress */}
+        </Box>
       </Box>
     )
   }
 
   // Only redirect if not authenticated AND not already on login page
-  // This prevents redirect loops on reload
   if (!isAuthenticated && location.pathname !== '/login') {
+    console.log('❌ ProtectedRoute: Redirecting to login - not authenticated')
     return <Navigate to="/login" replace state={{ from: location }} />
   }
+
+  console.log('✅ ProtectedRoute: Allowing access (authenticated)')
 
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh' }}>

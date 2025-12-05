@@ -19,6 +19,7 @@ import PersonIcon from '@mui/icons-material/Person'
 import { useVoterProfile, useUpdateVoterProfile } from '../hooks/VoterAuthHooks'
 import VoterSidenav from '../components/VoterSidenav'
 import StatusModal from '../components/StatusModal'
+import { getImageUrl } from '../utils/imageUtils'
 
 // Voter profile schema (without verify/archive)
 const voterProfileSchema = z.object({
@@ -82,7 +83,7 @@ const VoterProfile = () => {
         contact_number: profile.contact_number || '',
         password: '',
       })
-      setImagePreview(profile.v_image_url)
+      setImagePreview(profile.v_image_url ? getImageUrl(profile.v_image_url) : null)
       setSelectedFile(null)
     }
   }, [profile, reset])

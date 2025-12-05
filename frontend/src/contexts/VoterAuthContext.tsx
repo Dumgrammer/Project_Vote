@@ -1,6 +1,7 @@
-import React, { createContext, useContext, type ReactNode, useCallback, useEffect, useState } from 'react'
+import React, { createContext, useContext, type ReactNode, useCallback, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useVoterSession, useVoterLogout, type VoterUser } from '../hooks/VoterAuthHooks'
+import { useVoterLogout, type VoterUser } from '../hooks/VoterAuthHooks'
+import { voterAuthService } from '../services/voterAuthService'
 
 interface VoterAuthContextType {
   voter: VoterUser | null
@@ -14,17 +15,35 @@ const VoterAuthContext = createContext<VoterAuthContextType | undefined>(undefin
 
 export const VoterAuthProvider: React.FC<{ children: ReactNode }> = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate()
-  const { data: sessionData, isLoading } = useVoterSession()
   const logoutMutation = useVoterLogout()
   const [voter, setVoter] = useState<VoterUser | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
+  // Check session via API on mount (cookie is HttpOnly, can't read it directly)
   useEffect(() => {
-    if (sessionData?.logged_in && sessionData.voter) {
-      setVoter(sessionData.voter)
-    } else if (sessionData?.logged_in === false) {
-      setVoter(null)
+    const checkSession = async () => {
+      try {
+        console.log('🟢 VoterAuthContext: Checking session via API...')
+        const response = await voterAuthService.checkSession()
+        console.log('🟢 VoterAuthContext: Session check response:', response)
+        
+        if (response.logged_in && response.voter) {
+          console.log('✅ VoterAuthContext: Session valid, setting voter')
+          setVoter(response.voter)
+        } else {
+          console.log('❌ VoterAuthContext: No valid session')
+          setVoter(null)
+        }
+      } catch (error) {
+        console.log('❌ VoterAuthContext: Session check failed:', error)
+        setVoter(null)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [sessionData])
+
+    checkSession()
+  }, [])
 
   const isAuthenticated = !!voter
 
@@ -35,11 +54,9 @@ export const VoterAuthProvider: React.FC<{ children: ReactNode }> = ({ children 
   const logout = async () => {
     try {
       await logoutMutation.mutateAsync()
-      setVoter(null)
-      navigate('/voter/login')
     } catch (error) {
       console.error('Logout error:', error)
-      // Navigate anyway
+    } finally {
       setVoter(null)
       navigate('/voter/login')
     }

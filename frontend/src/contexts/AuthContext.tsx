@@ -1,8 +1,6 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authService, type User } from '../services/authService'
-import CircularProgress from '@mui/material/CircularProgress'
-import Box from '@mui/material/Box'
 
 interface AuthContextType {
   user: User | null
@@ -28,64 +26,48 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const navigate = useNavigate()
   const [user, setUser] = React.useState<User | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
-  const navigate = useNavigate()
 
-  // Helper function to get cookie value
-  const getCookie = (name: string): string | null => {
-    const value = `; ${document.cookie}`
-    const parts = value.split(`; ${name}=`)
-    if (parts.length === 2) {
-      return parts.pop()?.split(';').shift() || null
-    }
-    return null
-  }
-
-  const checkSession = React.useCallback(async () => {
-    // Check for PHPSESSID cookie - if it exists, user is authenticated
-    const phpSessionId = getCookie('PHPSESSID')
-    
-    if (phpSessionId) {
-      // Cookie exists - try to get user info from API, but don't fail if it doesn't work
+  // Check session via API on mount (cookie is HttpOnly, can't read it directly)
+  React.useEffect(() => {
+    const checkSession = async () => {
       try {
+        console.log('🔵 AuthContext: Checking session via API...')
         const response = await authService.checkSession()
-        if (response.status === 'success' && response.data.logged_in && response.data.user) {
+        console.log('🔵 AuthContext: Session check response:', response)
+        
+        if (response.data?.logged_in && response.data?.user) {
+          console.log('✅ AuthContext: Session valid, setting user')
           setUser(response.data.user)
         } else {
-          // Cookie exists but API says not logged in - still allow access
-          // Set a default user object to maintain authentication state
-          setUser({
-            id: 1,
-            email: 'admin@pollify.com',
-            fname: 'Admin',
-            lname: 'User',
-            rules: {},
-          })
+          console.log('❌ AuthContext: No valid session')
+          setUser(null)
         }
       } catch (error) {
-        // API call failed but cookie exists - still allow access
-        console.warn('Session API check failed, but cookie exists:', error)
-        setUser({
-          id: 1,
-          email: 'admin@pollify.com',
-          fname: 'Admin',
-          lname: 'User',
-          rules: {},
-        })
+        console.log('❌ AuthContext: Session check failed:', error)
+        setUser(null)
+      } finally {
+        setIsLoading(false)
       }
-    } else {
-      // No cookie - user is not authenticated
-      setUser(null)
     }
-    
-    setIsLoading(false)
+
+    checkSession()
   }, [])
 
-  // Check session on mount
-  React.useEffect(() => {
-    checkSession()
-  }, [checkSession])
+  const checkSession = React.useCallback(async () => {
+    try {
+      const response = await authService.checkSession()
+      if (response.data?.logged_in && response.data?.user) {
+        setUser(response.data.user)
+      } else {
+        setUser(null)
+      }
+    } catch (error) {
+      setUser(null)
+    }
+  }, [])
 
   const login = React.useCallback((userData: User) => {
     setUser(userData)
@@ -113,21 +95,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }),
     [user, isLoading, login, logout, checkSession]
   )
-
-  if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    )
-  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

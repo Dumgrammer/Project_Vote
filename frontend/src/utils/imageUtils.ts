@@ -17,7 +17,17 @@ export const getImageUrl = (imagePath: string | null | undefined): string | null
     return `${baseUrl}/${imagePath}`
   }
   
-  // Otherwise, assume it's just the filename and construct the path
+  // Check if it's a voter image (starts with voter_)
+  if (imagePath.includes('voter_')) {
+    return `${baseUrl}/uploads/voters/${imagePath}`
+  }
+  
+  // Check if it's a candidate image (starts with candidate_)
+  if (imagePath.includes('candidate_')) {
+    return `${baseUrl}/uploads/candidates/${imagePath}`
+  }
+  
+  // Otherwise, assume it's an election image
   return `${baseUrl}/uploads/elections/${imagePath}`
 }
 

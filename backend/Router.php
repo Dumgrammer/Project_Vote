@@ -66,6 +66,11 @@
     }
     
     require_once('./config/pollify.php');
+    require_once('./utils/utils.php');
+    
+    // Initialize session early to ensure cookie is set
+    initSession();
+    
     require_once('./controllers/AdminController.php');
     require_once('./controllers/ElectionController.php');
     require_once('./controllers/CandidateController.php');

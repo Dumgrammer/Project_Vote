@@ -1,5 +1,6 @@
+import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
-import { CircularProgress, Box } from '@mui/material'
+import { Box } from '@mui/material'
 import { useVoterAuth } from '../contexts/VoterAuthContext'
 import { keyframes } from '@mui/system'
 
@@ -100,26 +101,35 @@ const VoterProtectedRoute: React.FC<VoterProtectedRouteProps> = ({ children }) =
   const { isAuthenticated, isLoading } = useVoterAuth()
   const location = useLocation()
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🟢 VoterProtectedRoute Debug:', {
+      pathname: location.pathname,
+      isAuthenticated,
+      isLoading,
+      decision: isLoading ? 'WAITING (checking session)' : (isAuthenticated ? 'ALLOW (authenticated)' : 'REDIRECT (not authenticated)')
+    })
+  }, [location.pathname, isAuthenticated, isLoading])
+
+  // Show loading state while checking session
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          position: 'relative',
-        }}
-      >
+      <Box sx={{ position: 'relative', minHeight: '100vh' }}>
         <FloatingBackground color="green" />
-        <CircularProgress sx={{ position: 'relative', zIndex: 1 }} />
+        <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+          {/* Loading state - session check in progress */}
+        </Box>
       </Box>
     )
   }
 
+  // Only redirect if not authenticated AND not already on login page
   if (!isAuthenticated && location.pathname !== '/voter/login') {
+    console.log('❌ VoterProtectedRoute: Redirecting to login - not authenticated')
     return <Navigate to="/voter/login" replace state={{ from: location }} />
   }
+
+  console.log('✅ VoterProtectedRoute: Allowing access (authenticated)')
 
   return (
     <Box sx={{ position: 'relative', minHeight: '100vh' }}>

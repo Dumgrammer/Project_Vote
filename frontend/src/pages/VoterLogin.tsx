@@ -19,7 +19,97 @@
   import { zodResolver } from '@hookform/resolvers/zod'
   import { z } from 'zod'
   import { useVoterLogin } from '../hooks/VoterAuthHooks'
-import { useVoterAuth } from '../contexts/VoterAuthContext'
+  import { useVoterAuth } from '../contexts/VoterAuthContext'
+  import { keyframes } from '@mui/system'
+
+  // Define keyframe animations for green theme
+  const floatBox = keyframes`
+    0%, 100% {
+      transform: translate(0, 0) rotate(0deg);
+    }
+    25% {
+      transform: translate(30px, -40px) rotate(90deg);
+    }
+    50% {
+      transform: translate(-25px, 30px) rotate(180deg);
+    }
+    75% {
+      transform: translate(35px, 20px) rotate(270deg);
+    }
+  `
+
+  const floatSmallBox = keyframes`
+    0%, 100% {
+      transform: translate(0, 0) rotate(0deg);
+    }
+    33% {
+      transform: translate(-25px, 30px) rotate(120deg);
+    }
+    66% {
+      transform: translate(20px, -25px) rotate(240deg);
+    }
+  `
+
+  // Floating background boxes component (green)
+  const FloatingBackground: React.FC = () => {
+    const primaryColor = '#4caf50'
+    const secondaryColor = '#388e3c'
+    const lightColor = 'rgba(76, 175, 80, 0.1)'
+
+    return (
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        {/* Floating boxes */}
+        {[...Array(8)].map((_, i) => (
+          <Box
+            key={i}
+            sx={{
+              position: 'absolute',
+              width: { xs: 60, sm: 80, md: 100 },
+              height: { xs: 60, sm: 80, md: 100 },
+              borderRadius: 3,
+              bgcolor: lightColor,
+              border: `2px solid ${primaryColor}`,
+              opacity: 0.3,
+              animation: `${floatBox} 20s infinite ease-in-out`,
+              animationDelay: `${i * 0.5}s`,
+              top: `${10 + i * 12}%`,
+              left: `${5 + i * 11}%`,
+            }}
+          />
+        ))}
+        {/* Additional smaller boxes */}
+        {[...Array(12)].map((_, i) => (
+          <Box
+            key={`small-${i}`}
+            sx={{
+              position: 'absolute',
+              width: { xs: 30, sm: 40, md: 50 },
+              height: { xs: 30, sm: 40, md: 50 },
+              borderRadius: 2,
+              bgcolor: lightColor,
+              border: `1px solid ${secondaryColor}`,
+              opacity: 0.2,
+              animation: `${floatSmallBox} 15s infinite ease-in-out`,
+              animationDelay: `${i * 0.3}s`,
+              top: `${15 + i * 7}%`,
+              left: `${8 + i * 7}%`,
+            }}
+          />
+        ))}
+      </Box>
+    )
+  }
 
   // Zod validation schema
   const voterLoginSchema = z.object({
@@ -38,7 +128,7 @@ import { useVoterAuth } from '../contexts/VoterAuthContext'
   export default function VoterLogin() {
     const navigate = useNavigate()
     const loginMutation = useVoterLogin()
-  const { isAuthenticated, isLoading: authLoading, login: setAuthenticatedVoter } = useVoterAuth()
+    const { isAuthenticated, isLoading, login: setAuthenticatedVoter } = useVoterAuth()
     const [modalState, setModalState] = useState<{
       open: boolean
       type: 'success' | 'error'
@@ -116,22 +206,18 @@ import { useVoterAuth } from '../contexts/VoterAuthContext'
       }
     }
 
-    // Redirect if already authenticated
-    if (authLoading) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-          <CircularProgress />
-        </Box>
-      )
-    }
-
-    if (isAuthenticated) {
+    // Redirect if already authenticated (by context or cookie)
+    // Redirect if already authenticated (session check happens in VoterAuthContext)
+    if (!isLoading && isAuthenticated) {
       return <Navigate to="/voter/home" replace />
     }
 
     return (
-      <AuthLayout>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ width: '100%', maxWidth: 360 }}>
+      <Box sx={{ position: 'relative', minHeight: '100vh' }}>
+        <FloatingBackground />
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+          <AuthLayout>
+            <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ width: '100%', maxWidth: 360 }}>
           <Stack spacing={2}>
             {/* Back Button */}
             <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
@@ -250,9 +336,11 @@ import { useVoterAuth } from '../contexts/VoterAuthContext'
           type={modalState.type}
           title={modalState.title}
           message={modalState.message}
-          autoHideDuration={modalState.type === 'success' ? 1500 : undefined}
-        />
-      </AuthLayout>
+            autoHideDuration={modalState.type === 'success' ? 1500 : undefined}
+            />
+          </AuthLayout>
+        </Box>
+      </Box>
     )
   }
 
