@@ -57,6 +57,36 @@ interface CandidateDetails {
   percentage?: number
 }
 
+const getTypeChip = (type?: string) => {
+  switch (type) {
+    case 'barangay':
+      return { label: 'Barangay', color: 'warning' as const }
+    case 'corporate':
+      return { label: 'Corporate', color: 'info' as const }
+    case 'school':
+      return { label: 'School', color: 'success' as const }
+    default:
+      return { label: 'General', color: 'default' as const }
+  }
+}
+
+const getStatusChip = (election: { status?: string; start_date: string; end_date: string }) => {
+  const now = Date.now()
+  const start = new Date(election.start_date).getTime()
+  const end = new Date(election.end_date).getTime()
+  let status = election.status
+  if (!status) {
+    if (now < start) status = 'not_started'
+    else if (now >= start && now <= end) status = 'ongoing'
+    else status = 'ended'
+  }
+  const isCompleted = status === 'ended'
+  return {
+    label: isCompleted ? 'Completed' : status === 'ongoing' ? 'Ongoing' : 'Not Started',
+    color: isCompleted ? 'success' : status === 'ongoing' ? 'primary' : 'default',
+  }
+}
+
 export default function Results() {
   const [exportAllLoading, setExportAllLoading] = useState(false)
   const [selectedElection, setSelectedElection] = useState<number | null>(null)
@@ -495,13 +525,26 @@ export default function Results() {
                 }}
                 disabled={electionsLoading}
               >
-                {elections?.map((election) => (
-                  <MenuItem key={election.id} value={election.id}>
-                    {election.election_title} 
-                    {' • '}
-                    {new Date(election.start_date).toLocaleDateString()} - {new Date(election.end_date).toLocaleDateString()}
-                  </MenuItem>
-                ))}
+                {elections?.map((election) => {
+                  const typeChip = getTypeChip((election as any).election_type)
+                  const statusChip = getStatusChip(election as any)
+                  return (
+                    <MenuItem key={election.id} value={election.id}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 2 }}>
+                        <Box>
+                          <Typography sx={{ fontWeight: 600 }}>{election.election_title}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(election.start_date).toLocaleDateString()} - {new Date(election.end_date).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>
+                          <Chip label={typeChip.label} color={typeChip.color} size="small" variant={typeChip.color === 'default' ? 'outlined' : 'filled'} />
+                          <Chip label={statusChip.label} color={statusChip.color as any} size="small" variant="outlined" />
+                        </Box>
+                      </Box>
+                    </MenuItem>
+                  )
+                })}
               </Select>
             </FormControl>
           )}
