@@ -98,7 +98,6 @@ export default function Elections() {
   })
   
   const MODIFICATION_LOCK_MESSAGE = 'Elections can only be modified more than 24 hours before they start and cannot be changed once they are ongoing or completed.'
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
   const navigate = useNavigate()
   const { data: elections = [], isLoading, error } = useGetElections(showArchived)
@@ -110,6 +109,10 @@ export default function Elections() {
   )
 
   const canModifyElection = React.useCallback((election: (typeof elections)[number] | null) => {
+    // Temporarily allow editing/archiving anytime by bypassing restrictions
+    void election
+    return true
+    /*
     if (!election) return false
     if (election.is_archived) return false
     const status = election.status
@@ -118,6 +121,7 @@ export default function Elections() {
     if (Number.isNaN(startTime)) return false
     const nowTime = Date.now()
     return startTime - nowTime > ONE_DAY_MS
+    */
   }, [])
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, electionId: number) => {
