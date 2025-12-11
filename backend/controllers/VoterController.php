@@ -111,27 +111,76 @@ class VoterController extends GlobalUtil {
         }
     }
 
-    // Generate unique voter ID
-    private function generateVoterId() {
+    // Generate unique voter ID with retry logic to handle race conditions
+    private function generateVoterId($maxRetries = 10) {
         $year = date('Y');
         $prefix = 'V' . $year;
         
-        // Get the last voter ID for this year
-        $stmt = $this->pdo->prepare("SELECT voters_id FROM voters WHERE voters_id LIKE ? ORDER BY voters_id DESC LIMIT 1");
-        $stmt->execute([$prefix . '%']);
-        $lastVoter = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($lastVoter) {
-            // Extract the number part and increment
-            $lastNumber = (int) substr($lastVoter['voters_id'], strlen($prefix));
-            $newNumber = $lastNumber + 1;
-        } else {
-            // First voter of the year
-            $newNumber = 1;
+        for ($attempt = 0; $attempt < $maxRetries; $attempt++) {
+            // Use a transaction to prevent race conditions
+            $this->pdo->beginTransaction();
+            
+            try {
+                // Get the last voter ID for this year with a lock
+                $stmt = $this->pdo->prepare("SELECT voters_id FROM voters WHERE voters_id LIKE ? ORDER BY voters_id DESC LIMIT 1 FOR UPDATE");
+                $stmt->execute([$prefix . '%']);
+                $lastVoter = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($lastVoter && !empty($lastVoter['voters_id'])) {
+                    // Extract the number part after the dash
+                    $lastId = $lastVoter['voters_id'];
+                    $dashPos = strpos($lastId, '-');
+                    
+                    if ($dashPos !== false) {
+                        // Extract number after the dash (e.g., "00001" from "V2025-00001")
+                        $numberPart = substr($lastId, $dashPos + 1);
+                        $lastNumber = (int) $numberPart;
+                        $newNumber = $lastNumber + 1;
+                    } else {
+                        // Fallback: try to extract number from end
+                        $numberPart = substr($lastId, strlen($prefix));
+                        $lastNumber = (int) $numberPart;
+                        $newNumber = ($lastNumber > 0) ? $lastNumber + 1 : 1;
+                    }
+                } else {
+                    // First voter of the year
+                    $newNumber = 1;
+                }
+                
+                // Format: V2025-00001
+                $newVoterId = $prefix . '-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+                
+                // Verify the ID doesn't already exist (double-check)
+                $checkStmt = $this->pdo->prepare("SELECT id FROM voters WHERE voters_id = ?");
+                $checkStmt->execute([$newVoterId]);
+                if ($checkStmt->fetch()) {
+                    // ID already exists, increment and try again
+                    $newNumber++;
+                    $newVoterId = $prefix . '-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+                }
+                
+                $this->pdo->commit();
+                return $newVoterId;
+                
+            } catch (\PDOException $e) {
+                $this->pdo->rollBack();
+                
+                // If it's a duplicate key error, try again with incremented number
+                if ($e->getCode() == 23000 && strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                    // Continue to next iteration to retry
+                    if ($attempt < $maxRetries - 1) {
+                        usleep(100000); // Wait 100ms before retry
+                        continue;
+                    }
+                }
+                
+                // If it's not a duplicate error or we've exhausted retries, throw
+                throw $e;
+            }
         }
         
-        // Format: V2025-00001
-        return $prefix . '-' . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+        // If we've exhausted all retries, throw an error
+        throw new \Exception("Failed to generate unique voter ID after {$maxRetries} attempts");
     }
 
     // Get all voters

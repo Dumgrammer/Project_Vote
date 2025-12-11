@@ -566,19 +566,112 @@
                 case 'election':
                     if (isset($request[1])) {
                         if ($isMultipart) {
-                            $election_title = $_POST['election_title'] ?? null;
-                            $start_date = $_POST['start_date'] ?? null;
-                            $end_date = $_POST['end_date'] ?? null;
-                            $description = $_POST['description'] ?? '';
-                            $election_type = $_POST['election_type'] ?? null;
-                            $imgFile = $_FILES['img'] ?? null;
+                            // Try $_POST first (some servers populate it for PUT)
+                            if (!empty($_POST)) {
+                                $election_title = $_POST['election_title'] ?? null;
+                                $start_date = $_POST['start_date'] ?? null;
+                                $end_date = $_POST['end_date'] ?? null;
+                                $description = $_POST['description'] ?? '';
+                                $election_type = $_POST['election_type'] ?? null;
+                                $imgFile = $_FILES['img'] ?? null;
+                            } else {
+                                // $_POST is empty - parse multipart/form-data from php://input
+                                $rawInput = file_get_contents("php://input");
+                                
+                                // Extract boundary from Content-Type header
+                                $boundary = null;
+                                if (preg_match('/boundary=(.*?)(?:;|$|\s)/', $contentType, $matches)) {
+                                    $boundary = trim($matches[1], '"\'');
+                                }
+                                
+                                // If no boundary in header, try to extract from raw input
+                                if (!$boundary && !empty($rawInput)) {
+                                    // Multipart data starts with boundary
+                                    if (preg_match('/^--([^\r\n]+)/', $rawInput, $boundaryMatch)) {
+                                        $boundary = $boundaryMatch[1];
+                                    }
+                                }
+                                
+                                if ($boundary && !empty($rawInput)) {
+                                    // Parse multipart data
+                                    $parts = explode('--' . $boundary, $rawInput);
+                                    $parsedData = [];
+                                    
+                                    foreach ($parts as $part) {
+                                        $part = trim($part);
+                                        if (empty($part) || $part === '--') continue;
+                                        
+                                        // Match Content-Disposition header
+                                        if (preg_match('/Content-Disposition:\s*form-data;\s*name="([^"]+)"(?:\s*;\s*filename="([^"]+)")?/i', $part, $nameMatch)) {
+                                            $fieldName = $nameMatch[1];
+                                            $filename = $nameMatch[2] ?? null;
+                                            
+                                            // Find the value after the headers (after double CRLF or \n\n)
+                                            $headerEnd = strpos($part, "\r\n\r\n");
+                                            if ($headerEnd === false) {
+                                                $headerEnd = strpos($part, "\n\n");
+                                            }
+                                            
+                                            if ($headerEnd !== false) {
+                                                $fieldValue = substr($part, $headerEnd + 4); // Skip CRLFCRLF or \n\n
+                                                // Remove trailing CRLF, newlines, and boundary markers
+                                                $fieldValue = rtrim($fieldValue, "\r\n");
+                                                $fieldValue = preg_replace('/--\s*$/', '', $fieldValue);
+                                                $fieldValue = trim($fieldValue);
+                                                
+                                                if ($filename) {
+                                                    // This is a file field - skip file parsing from raw input
+                                                    // Files are complex to parse, rely on $_FILES if available
+                                                } else {
+                                                    $parsedData[$fieldName] = $fieldValue;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    $election_title = $parsedData['election_title'] ?? null;
+                                    $start_date = $parsedData['start_date'] ?? null;
+                                    $end_date = $parsedData['end_date'] ?? null;
+                                    $description = $parsedData['description'] ?? '';
+                                    $election_type = $parsedData['election_type'] ?? null;
+                                    $imgFile = $_FILES['img'] ?? null; // Try $_FILES first, file parsing from raw is complex
+                                    
+                                    // Debug logging (remove in production)
+                                    if (!$election_title || !$start_date || !$end_date) {
+                                        error_log("Election update - Parsed data: " . json_encode($parsedData));
+                                        error_log("Election update - Boundary: " . $boundary);
+                                        error_log("Election update - Content-Type: " . $contentType);
+                                    }
+                                } else {
+                                    // No boundary found or empty input, try JSON as fallback
+                                    $data = !empty($rawInput) ? json_decode($rawInput) : null;
+                                    if ($data) {
+                                        $election_title = $data->election_title ?? null;
+                                        $start_date = $data->start_date ?? null;
+                                        $end_date = $data->end_date ?? null;
+                                        $description = $data->description ?? '';
+                                        $election_type = $data->election_type ?? null;
+                                        $imgFile = null;
+                                    } else {
+                                        // Last resort: try parse_str if it's URL-encoded
+                                        parse_str($rawInput, $parsedData);
+                                        $election_title = $parsedData['election_title'] ?? null;
+                                        $start_date = $parsedData['start_date'] ?? null;
+                                        $end_date = $parsedData['end_date'] ?? null;
+                                        $description = $parsedData['description'] ?? '';
+                                        $election_type = $parsedData['election_type'] ?? null;
+                                        $imgFile = $_FILES['img'] ?? null;
+                                    }
+                                }
+                            }
                         } else {
+                            // JSON request
                             $election_title = $data->election_title ?? null;
                             $start_date = $data->start_date ?? null;
                             $end_date = $data->end_date ?? null;
                             $description = $data->description ?? '';
                             $election_type = $data->election_type ?? null;
-                            $imgFile = $data->img ?? null;
+                            $imgFile = null; // No file upload for JSON
                         }
                         
                         if ($election_title && $start_date && $end_date) {
@@ -594,7 +687,20 @@
                             echo json_encode($response);
                             http_response_code($response['statusCode']);
                         } else {
-                            echo json_encode(["error" => "Election title, start date, and end date are required"]);
+                            // Enhanced error message with debug info
+                            $debugInfo = [
+                                'has_election_title' => !empty($election_title),
+                                'has_start_date' => !empty($start_date),
+                                'has_end_date' => !empty($end_date),
+                                'is_multipart' => $isMultipart,
+                                'post_empty' => empty($_POST),
+                                'content_type' => $contentType,
+                            ];
+                            error_log("Election update validation failed: " . json_encode($debugInfo));
+                            echo json_encode([
+                                "error" => "Election title, start date, and end date are required",
+                                "debug" => $debugInfo
+                            ]);
                             http_response_code(400);
                         }
                     } else {

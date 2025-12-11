@@ -109,7 +109,20 @@ export const useUpdateElection = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: CreateElectionData }) => {
-      const response = await api.put(buildApiUrl(`/?request=election/${id}`), data)
+      const formData = new FormData()
+      formData.append('election_title', data.election_title)
+      formData.append('description', data.description)
+      formData.append('election_type', data.election_type)
+      formData.append('start_date', data.start_date)
+      formData.append('end_date', data.end_date)
+      
+      if (data.img) {
+        formData.append('img', data.img)
+      }
+      
+      // Don't set Content-Type header - let axios set it automatically with boundary
+      const response = await api.put(buildApiUrl(`/?request=election/${id}`), formData)
+      
       if (response.data.status === 'success') {
         return response.data.data
       }

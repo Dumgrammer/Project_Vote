@@ -34,6 +34,7 @@ import ArchiveIcon from '@mui/icons-material/Archive'
 import UnarchiveIcon from '@mui/icons-material/Unarchive'
 import Sidenav from '../components/Sidenav'
 import CreateElection from '../components/CreateElection'
+import EditElections from '../components/EditElections'
 import StatusModal from '../components/StatusModal'
 import { useGetElections, useDeleteElection } from '../hooks/ElectionHooks'
 import { getImageUrl } from '../utils/imageUtils'
@@ -82,6 +83,7 @@ export default function Elections() {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
   const [selectedElection, setSelectedElection] = React.useState<number | null>(null)
   const [openCreateDialog, setOpenCreateDialog] = React.useState(false)
+  const [openEditDialog, setOpenEditDialog] = React.useState(false)
   const [sortBy, setSortBy] = React.useState<SortOption>('date_desc')
   const [viewMode, setViewMode] = React.useState<ViewMode>('card')
   const [showArchived, setShowArchived] = React.useState(false)
@@ -151,18 +153,23 @@ export default function Elections() {
 
   const handleEdit = () => {
     const election = selectedElectionData
-    if (!election || !canModifyElection(election)) {
-      setModalState({
-        open: true,
-        type: 'error',
-        title: 'Editing locked',
-        message: MODIFICATION_LOCK_MESSAGE,
-      })
+    if (!election) {
       handleMenuClose()
       return
     }
 
-    console.log('Edit election:', selectedElection)
+    // if (!canModifyElection(election)) {
+    //   setModalState({
+    //     open: true,
+    //     type: 'error',
+    //     title: 'Editing locked',
+    //     message: MODIFICATION_LOCK_MESSAGE,
+    //   })
+    //   handleMenuClose()
+    //   return
+    // }
+
+    setOpenEditDialog(true)
     handleMenuClose()
   }
 
@@ -207,6 +214,16 @@ export default function Elections() {
       type: 'success',
       title: 'Election Created!',
       message: 'The election has been successfully created.',
+    })
+  }
+
+  const handleElectionUpdated = () => {
+    setOpenEditDialog(false)
+    setModalState({
+      open: true,
+      type: 'success',
+      title: 'Election Updated!',
+      message: 'The election has been successfully updated.',
     })
   }
 
@@ -682,7 +699,7 @@ export default function Elections() {
           </MenuItem>
           <MenuItem
             onClick={handleEdit}
-            disabled={!canModifyElection(selectedElectionData)}
+            // disabled={!canModifyElection(selectedElectionData)}
           >
             Edit
           </MenuItem>
@@ -700,6 +717,14 @@ export default function Elections() {
           open={openCreateDialog}
           onClose={() => setOpenCreateDialog(false)}
           onSuccess={handleElectionCreated}
+        />
+
+        {/* Edit Election Dialog */}
+        <EditElections
+          open={openEditDialog}
+          onClose={() => setOpenEditDialog(false)}
+          onSuccess={handleElectionUpdated}
+          election={selectedElectionData}
         />
 
         {/* Status Modal */}
