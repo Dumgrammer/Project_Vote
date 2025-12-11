@@ -12,6 +12,7 @@ interface Election {
   end_date: string
   img: string
   is_archived: number
+  status?: string
 }
 
 interface Candidate {
@@ -45,18 +46,13 @@ interface ElectionResults {
 
 export const useElections = () => {
   return useQuery<Election[]>({
-    queryKey: ['elections-list-ended'],
+    queryKey: ['elections-list-all'],
     queryFn: async () => {
       const response = await axios.get(`${API_URL}/?request=elections`, {
         withCredentials: true,
       })
-      // Filter for only ended elections
-      const allElections = response.data.data || []
-      const endedElections = allElections.filter((election: Election) => {
-        const endDate = new Date(election.end_date)
-        return endDate < new Date() // Only elections that have ended
-      })
-      return endedElections
+      // Return all non-archived elections (backend already filters archived)
+      return response.data.data || []
     },
   })
 }

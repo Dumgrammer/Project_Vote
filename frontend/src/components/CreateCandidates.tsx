@@ -32,7 +32,6 @@ interface CreateCandidatesProps {
   electionId: number
   initialData?: Candidate
   editMode?: boolean
-  canModify?: boolean
 }
 
 export default function CreateCandidates({
@@ -42,7 +41,6 @@ export default function CreateCandidates({
   electionId,
   initialData,
   editMode = false,
-  canModify = true,
 }: CreateCandidatesProps) {
   const [imagePreview, setImagePreview] = React.useState<string | null>(null)
   const [partyDialogOpen, setPartyDialogOpen] = React.useState(false)
@@ -70,8 +68,7 @@ export default function CreateCandidates({
 
   const isPending = isCreating || isUpdating
   const error = createError || updateError
-  const isLocked = !canModify
-  const isInteractionDisabled = isLocked || isPending
+  const isInteractionDisabled = isPending
 
   const {
     control,
@@ -120,7 +117,7 @@ export default function CreateCandidates({
   }, [initialData, reset, open, isBarangay, projectParty, projectPosition])
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (isLocked) return
+    if (isInteractionDisabled) return
     const file = event.target.files?.[0]
     if (file) {
       // Validate file type
@@ -147,7 +144,7 @@ export default function CreateCandidates({
   }
 
   const handleRemoveImage = () => {
-    if (isLocked) return
+    if (isInteractionDisabled) return
     setImagePreview(null)
     setValue('photo', null)
     if (fileInputRef.current) {
@@ -156,9 +153,6 @@ export default function CreateCandidates({
   }
 
   const onSubmit = (data: CandidateFormData) => {
-    if (isLocked) {
-      return
-    }
     if (editMode && initialData) {
       // Update existing candidate
       updateCandidate(
@@ -247,12 +241,6 @@ export default function CreateCandidates({
                 {error.message}
               </Alert>
             )}
-            {isLocked && (
-              <Alert severity="info">
-                Candidate updates are locked for this election. You can only modify candidates more than 24 hours before the election begins.
-              </Alert>
-            )}
-
             {/* Photo Upload */}
           <Box>
             <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
@@ -502,9 +490,7 @@ export default function CreateCandidates({
             disabled={isInteractionDisabled}
             startIcon={isPending ? <CircularProgress size={20} /> : null}
           >
-            {isLocked
-              ? 'Editing Locked'
-              : isPending
+            {isPending
               ? editMode
                 ? 'Updating...'
                 : 'Creating...'

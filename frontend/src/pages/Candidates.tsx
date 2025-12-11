@@ -117,15 +117,17 @@ export default function Candidates() {
   
   const { mutate: deleteCandidate } = useDeleteCandidate()
 
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000
-  const canModifyElection = React.useMemo(() => {
-    if (!election) return false
-    if (election.is_archived) return false
-    if (election.status === 'ongoing' || election.status === 'ended') return false
-    const startTime = new Date(election.start_date).getTime()
-    if (Number.isNaN(startTime)) return false
-    return startTime - Date.now() > ONE_DAY_MS
-  }, [election])
+  // const ONE_DAY_MS = 24 * 60 * 60 * 1000
+  // const canModifyElection = React.useMemo(() => {
+  //   if (!election) return false
+  //   if (election.is_archived) return false
+  //   if (election.status === 'ongoing' || election.status === 'ended') return false
+  //   const startTime = new Date(election.start_date).getTime()
+  //   if (Number.isNaN(startTime)) return false
+  //   return startTime - Date.now() > ONE_DAY_MS
+  // }, [election])
+  // Temporarily allow modifications even when ongoing/completed
+  const canModifyElection = true
 
   const modificationLockMessage = React.useMemo(() => {
     const managementType = election?.election_type === 'barangay' ? 'Project Election Management' : 'Candidate management'
@@ -850,7 +852,6 @@ export default function Candidates() {
             electionId={parseInt(electionId)}
             initialData={selectedCandidate || undefined}
             editMode={editMode}
-            canModify={canModifyElection}
           />
         )}
 

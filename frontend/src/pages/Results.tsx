@@ -35,9 +35,11 @@ import {
   Close as CloseIcon,
   Person as PersonIcon,
 } from '@mui/icons-material'
+import axios from 'axios'
 import { useSearchParams } from 'react-router-dom'
 import Sidenav from '../components/Sidenav'
 import { useElections, useElectionResults } from '../hooks/resultsHooks'
+import { API_BASE_URL } from '../config/axios'
 
 interface CandidateDetails {
   id: number
@@ -56,10 +58,12 @@ interface CandidateDetails {
 }
 
 export default function Results() {
+  const [exportAllLoading, setExportAllLoading] = useState(false)
   const [selectedElection, setSelectedElection] = useState<number | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateDetails | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
+  const API_URL = API_BASE_URL
 
   const { data: elections, isLoading: electionsLoading } = useElections()
   const { data: results, isLoading: resultsLoading, error: resultsError } = useElectionResults(selectedElection)
@@ -291,6 +295,158 @@ export default function Results() {
     }, 250)
   }
 
+  const handleExportAllResultsCSV = async () => {
+    if (!elections || elections.length === 0) return
+    setExportAllLoading(true)
+    try {
+      let csv = 'Election,Position,Rank,Candidate Name,Party,Vote Count,Vote Percentage\n'
+      for (const election of elections) {
+        try {
+          const res = await axios.get(
+            `${API_URL}/?request=election-results&election_id=${election.id}`,
+            { withCredentials: true }
+          )
+          const data = res.data?.data
+          if (!data?.results) continue
+          data.results.forEach((positionData: any) => {
+            const positionTotalVotes = getPositionTotalVotes(positionData as any)
+            positionData.candidates.forEach((candidate: any, index: number) => {
+              const votePercentage = getCandidatePercentage(candidate, positionTotalVotes)
+              csv += `"${data.election.election_title}","${positionData.position}",${index + 1},"${candidate.full_name}","${candidate.party_code || 'Independent'}",${candidate.vote_count},${votePercentage.toFixed(2)}%\n`
+            })
+          })
+        } catch (err) {
+          console.error('Failed to fetch results for election', election.id, err)
+        }
+      }
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `All_Elections_Results.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } finally {
+      setExportAllLoading(false)
+    }
+  }
+
+  const handleExportAllResultsPDF = async () => {
+    if (!elections || elections.length === 0) return
+    setExportAllLoading(true)
+    try {
+      const printWindow = window.open('', '', 'height=900,width=1100')
+      if (!printWindow) return
+
+      let html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>All Elections - Results</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; background: white; }
+            h1 { color: #1976d2; text-align: center; margin-bottom: 6px; }
+            .subtitle { text-align: center; color: #666; margin-bottom: 20px; }
+            .election { margin-bottom: 32px; page-break-inside: avoid; }
+            .election-title { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 4px; }
+            .election-meta { color: #666; font-size: 12px; margin-bottom: 12px; }
+            .position-section { margin-bottom: 18px; }
+            .position-title { font-size: 16px; font-weight: bold; color: #1976d2; margin-bottom: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            th { background: #1976d2; color: white; padding: 8px; text-align: left; }
+            td { border: 1px solid #ddd; padding: 8px; font-size: 13px; }
+            tr:nth-child(even) { background: #f9f9f9; }
+            .winner { background: #fff3cd !important; font-weight: bold; }
+            .rank { font-weight: bold; color: #1976d2; }
+            @media print { body { padding: 16px; } }
+          </style>
+        </head>
+        <body>
+          <h1>All Elections</h1>
+          <div class="subtitle">Combined election results</div>
+      `
+
+      for (const election of elections) {
+        try {
+          const res = await axios.get(
+            `${API_URL}/?request=election-results&election_id=${election.id}`,
+            { withCredentials: true }
+          )
+          const data = res.data?.data
+          if (!data?.results) continue
+
+          html += `
+            <div class="election">
+              <div class="election-title">${data.election.election_title}</div>
+              <div class="election-meta">
+                ${new Date(data.election.start_date).toLocaleDateString()} - ${new Date(data.election.end_date).toLocaleDateString()}
+              </div>
+          `
+
+          data.results.forEach((positionData: any) => {
+            const positionTotalVotes = getPositionTotalVotes(positionData as any)
+            html += `
+              <div class="position-section">
+                <div class="position-title">${positionData.position}</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 10%">Rank</th>
+                      <th style="width: 40%">Candidate</th>
+                      <th style="width: 20%">Party</th>
+                      <th style="width: 15%">Votes</th>
+                      <th style="width: 15%">Percentage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+            `
+            positionData.candidates.forEach((candidate: any, index: number) => {
+              const votePercentage = getCandidatePercentage(candidate, positionTotalVotes)
+              const isWinner = index === 0
+              html += `
+                <tr class="${isWinner ? 'winner' : ''}">
+                  <td class="rank">${isWinner ? '🏆 ' : ''}#${index + 1}</td>
+                  <td>${candidate.full_name}</td>
+                  <td>${candidate.party_code || 'Independent'}</td>
+                  <td>${candidate.vote_count}</td>
+                  <td>${votePercentage.toFixed(2)}%</td>
+                </tr>
+              `
+            })
+            html += `
+                  </tbody>
+                </table>
+              </div>
+            `
+          })
+
+          html += `</div>`
+        } catch (err) {
+          console.error('Failed to fetch results for election', election.id, err)
+        }
+      }
+
+      html += `
+          <div style="margin-top: 30px; text-align: center; color: #666; font-size: 12px;">
+            Generated on ${new Date().toLocaleString()}
+          </div>
+        </body>
+        </html>
+      `
+
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+      setTimeout(() => {
+        printWindow.print()
+      }, 250)
+    } finally {
+      setExportAllLoading(false)
+    }
+  }
+
   const handleViewDetails = (candidate: CandidateDetails, votePercentage: number) => {
     setSelectedCandidate({ ...candidate, vote_percentage: votePercentage })
     setDetailsOpen(true)
@@ -322,19 +478,16 @@ export default function Results() {
             <Alert severity="info" sx={{ display: 'flex', alignItems: 'center' }}>
               <Box>
                 <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  No completed elections available
-                </Typography>
-                <Typography variant="body2">
-                  Elections must be ended before results can be viewed. Check back after an election has concluded.
+                  No elections available
                 </Typography>
               </Box>
             </Alert>
           ) : (
             <FormControl fullWidth>
-              <InputLabel>Select Completed Election</InputLabel>
+              <InputLabel>Select Election</InputLabel>
               <Select
                 value={selectedElection || ''}
-                label="Select Completed Election"
+                label="Select Election"
                 onChange={(e) => {
                   const value = Number(e.target.value)
                   setSelectedElection(value)
@@ -347,13 +500,6 @@ export default function Results() {
                     {election.election_title} 
                     {' • '}
                     {new Date(election.start_date).toLocaleDateString()} - {new Date(election.end_date).toLocaleDateString()}
-                    {' • '}
-                    <Chip 
-                      label="Completed"
-                      size="small"
-                      sx={{ ml: 1 }}
-                      color="default"
-                    />
                   </MenuItem>
                 ))}
               </Select>
@@ -408,6 +554,24 @@ export default function Results() {
 
             {/* Export Buttons */}
             <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={handleExportAllResultsCSV}
+                sx={{ bgcolor: '#546e7a', '&:hover': { bgcolor: '#455a64' } }}
+                disabled={exportAllLoading || electionsLoading}
+              >
+                {exportAllLoading ? 'Exporting...' : 'Export All Results'}
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<PdfIcon />}
+                onClick={handleExportAllResultsPDF}
+                sx={{ bgcolor: '#8e24aa', '&:hover': { bgcolor: '#7b1fa2' } }}
+                disabled={exportAllLoading || electionsLoading}
+              >
+                {exportAllLoading ? 'Exporting...' : 'Export All Results (PDF)'}
+              </Button>
               <Button
                 variant="contained"
                 startIcon={<CsvIcon />}
@@ -545,10 +709,10 @@ export default function Results() {
           <Paper elevation={3} sx={{ p: 8, textAlign: 'center' }}>
             <DownloadIcon sx={{ fontSize: 64, color: '#bdbdbd', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              Select a completed election to view results
+              Select an election to view results
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Choose from {elections.length} completed election{elections.length !== 1 ? 's' : ''}
+              Choose from {elections.length} election{elections.length !== 1 ? 's' : ''}
             </Typography>
           </Paper>
         )}
